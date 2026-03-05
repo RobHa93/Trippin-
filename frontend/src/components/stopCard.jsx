@@ -95,16 +95,26 @@ export default function StopCard({ stop, index }) {
             
             {/* Photos */}
             {stop.photos && stop.photos.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {stop.photos.map((photo, idx) => (
-                  <img
-                    key={idx}
-                    src={getPhotoUrl(photo.reference)}
-                    alt={`${stop.name} ${idx + 1}`}
-                    className="w-full h-20 object-cover rounded"
-                  />
-                ))}
+              <div>
+                <div className="grid grid-cols-2 gap-2">
+                  {stop.photos.slice(0, 2).map((photo, idx) => (
+                    <img
+                      key={idx}
+                      src={getPhotoUrl(photo.reference)}
+                      alt={`${stop.name} ${idx + 1}`}
+                      className="w-[80%] h-24 object-cover rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => window.open(`https://www.google.com/maps/place/?q=place_id:${stop.id}`, '_blank')}
+                    />
+                  ))}
+                </div>
               </div>
+            )}
+            
+            {/* Description */}
+            {stop.description && (
+              <p className="text-sm text-gray-700 leading-relaxed">
+                {stop.description}
+              </p>
             )}
             
             {/* Additional info */}
