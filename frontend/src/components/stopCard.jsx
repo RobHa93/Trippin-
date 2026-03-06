@@ -16,7 +16,7 @@ export default function StopCard({ stop, index }) {
   // Get photo URL from reference
   const getPhotoUrl = (photoRef) => {
     if (!photoRef) return null;
-    const apiKey = 'AIzaSyBAk6HCYib5_uwUS9pebJZTgqoTclNL-sY';
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${apiKey}`;
   };
 
