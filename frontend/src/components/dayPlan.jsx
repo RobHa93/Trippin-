@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import StopCard from './stopCard';
 import { getDayTypeLabel, formatDurationMin } from '../utils/formatUtils';
 import { getRouteSummary } from '../utils/routeUtils';
@@ -6,11 +6,18 @@ import { getRouteSummary } from '../utils/routeUtils';
 /**
  * Component to display a single day's plan
  */
-export default function DayPlan({ day }) {
+export default function DayPlan({ day, onFocusStop }) {
   const summary = getRouteSummary(day);
+  const [focusedStop, setFocusedStop] = useState(null);
+
+  // Callback für StopCard, wenn ausgeklappt
+  const handleExpand = (index) => {
+    setFocusedStop(index);
+    if (onFocusStop) onFocusStop(index);
+  };
 
   return (
-    <div className="bg-gray-50 rounded-lg p-6">
+    <div className="rounded-lg p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">
@@ -24,7 +31,6 @@ export default function DayPlan({ day }) {
             {getDayTypeLabel(day.dayType)}
           </span>
         </div>
-        
         {day.route && (
           <div className="mt-3 flex gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
@@ -46,7 +52,7 @@ export default function DayPlan({ day }) {
       <div className="space-y-3">
         {day.stops && day.stops.length > 0 ? (
           day.stops.map((stop, index) => (
-            <StopCard key={stop.id || index} stop={stop} index={index} />
+            <StopCard key={stop.id || index} stop={stop} index={index} onExpand={() => handleExpand(index)} />
           ))
         ) : (
           <p className="text-gray-500 text-center py-8">

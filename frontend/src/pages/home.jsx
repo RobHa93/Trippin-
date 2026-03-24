@@ -10,8 +10,8 @@ export default function Home() {
     location: '',
     totalDays: 3,
     planStyle: 'relaxed',
-    cityDays: 2,
-    excursionDays: 1
+    cityDays: 3, // Standard: alle Tage in der Stadt
+    excursionDays: 0
   });
 
   const [error, setError] = useState('');
@@ -61,9 +61,7 @@ export default function Home() {
                 Trippin'
               </span>
             </h1>
-            <p className="text-base text-gray-700">
-              Deine KI-gestützte Reiseplanung
-            </p>
+            
           </div>
 
           {/* Form */}
@@ -98,8 +96,9 @@ export default function Home() {
                   className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-orange-500"
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>2 Tage</span>
-                  <span>10 Tage</span>
+                  <span>2 Tage &lt;- </span>
+                  <span> - - - - - - - - - - - - - - - - - -</span>
+                  <span>-&gt; 10 Tage</span>
                 </div>
               </div>
 
@@ -118,7 +117,7 @@ export default function Home() {
                         : 'bg-white text-gray-700 shadow-sm hover:shadow-md border border-gray-200'
                     }`}
                   >
-                    <div className="text-2xl mb-1">🌿</div>
+                    <div className="text-2xl mb-1">🦥</div>
                     <div className="font-semibold text-sm">Gemütlich</div>
                     <div className={`text-xs mt-0.5 ${formData.planStyle === 'relaxed' ? 'text-white/90' : 'text-gray-500'}`}>
                       ~5 Stops/Tag
@@ -140,7 +139,7 @@ export default function Home() {
                         : 'bg-white text-gray-700 shadow-sm hover:shadow-md border border-gray-200'
                     }`}
                   >
-                    <div className="text-2xl mb-1">⚡</div>
+                    <div className="text-2xl mb-1">🚴</div>
                     <div className="font-semibold text-sm">Vollgepackt</div>
                     <div className={`text-xs mt-0.5 ${formData.planStyle === 'packed' ? 'text-white/90' : 'text-gray-500'}`}>
                       ~8 Stops/Tag
@@ -166,7 +165,7 @@ export default function Home() {
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xl">🏙️</span>
+                        <span className="text-xl">🏢</span>
                         <span className="text-xs font-medium text-gray-700">In der Stadt</span>
                       </div>
                       <span className="px-2 py-0.5 bg-blue-500 text-white text-xs font-semibold rounded-full">
@@ -190,8 +189,8 @@ export default function Home() {
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xl">🏞️</span>
-                        <span className="text-xs font-medium text-gray-700">Ausflüge</span>
+                        <span className="text-xl">⛺</span>
+                        <span className="text-xs font-medium text-gray-700">Ausflüge ausserhalb</span>
                       </div>
                       <span className="px-2 py-0.5 bg-blue-500 text-white text-xs font-semibold rounded-full">
                         {formData.excursionDays}

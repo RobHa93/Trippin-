@@ -4,7 +4,32 @@ import React, { useEffect, useRef } from 'react';
  * Component to display Google Map with markers and route
  * Note: Requires Google Maps JavaScript API to be loaded
  */
-export default function MapView({ day, center }) {
+export default function MapView({ day, center, focusedStopIndex }) {
+    // Zoom auf fokussierten Stop, wenn focusedStopIndex sich ändert
+    useEffect(() => {
+      if (
+        typeof focusedStopIndex === 'number' &&
+        day &&
+        day.stops &&
+        day.stops[focusedStopIndex] &&
+        mapInstanceRef.current &&
+        window.google
+      ) {
+        const stop = day.stops[focusedStopIndex];
+        const latLng = new window.google.maps.LatLng(stop.lat, stop.lng);
+        mapInstanceRef.current.panTo(latLng);
+        mapInstanceRef.current.setZoom(15);
+        // Optional: Marker hervorheben (z.B. Animation)
+        if (markersRef.current[focusedStopIndex]) {
+          markersRef.current[focusedStopIndex].setAnimation(window.google.maps.Animation.BOUNCE);
+          setTimeout(() => {
+            if (markersRef.current[focusedStopIndex]) {
+              markersRef.current[focusedStopIndex].setAnimation(null);
+            }
+          }, 1200);
+        }
+      }
+    }, [focusedStopIndex, day]);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);

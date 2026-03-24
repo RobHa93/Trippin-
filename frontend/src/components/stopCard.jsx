@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 /**
  * Component to display a single stop with expandable details
  */
-export default function StopCard({ stop, index }) {
+export default function StopCard({ stop, index, onExpand }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Format place types for display
@@ -16,7 +16,7 @@ export default function StopCard({ stop, index }) {
   // Get photo URL from reference
   const getPhotoUrl = (photoRef) => {
     if (!photoRef) return null;
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${apiKey}`;
   };
 
@@ -36,7 +36,6 @@ export default function StopCard({ stop, index }) {
                 {stop.vicinity}
               </p>
             )}
-            
             {/* Rating and Type */}
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               {stop.rating && (
@@ -52,13 +51,11 @@ export default function StopCard({ stop, index }) {
                   )}
                 </div>
               )}
-              
               {getTypeLabel(stop.types) && (
                 <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
                   {getTypeLabel(stop.types)}
                 </span>
               )}
-              
               {stop.openNow !== undefined && (
                 <span className={`text-xs px-2 py-1 rounded-full ${
                   stop.openNow 
@@ -70,10 +67,12 @@ export default function StopCard({ stop, index }) {
               )}
             </div>
           </div>
-          
           {/* Expand button */}
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => {
+              setIsExpanded(!isExpanded);
+              if (!isExpanded && onExpand) onExpand();
+            }}
             className="flex-shrink-0 p-1 hover:bg-gray-100 rounded-full transition-colors"
           >
             <svg 
