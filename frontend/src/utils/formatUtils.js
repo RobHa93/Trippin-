@@ -38,7 +38,7 @@ export function formatDurationMin(minutes) {
  * Get plan style label
  */
 export function getPlanStyleLabel(style) {
-  return style === 'relaxed' ? 'Gemütlich' : 'Vollgepackt';
+  return style === 'relaxed' ? 'Gemütlich' : 'Aktiv';
 }
 
 /**

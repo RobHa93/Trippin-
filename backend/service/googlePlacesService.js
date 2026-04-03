@@ -76,69 +76,62 @@ export async function searchNearbyPlaces(lat, lng, radius, types, apiKey) {
 }
 
 /**
- * Get city POIs (museums, parks, landmarks, etc.)
+ * Search places for a single type. Google Places API only supports one type per call.
+ * Returns up to 20 results.
+ */
+async function searchByType(lat, lng, radius, type, apiKey) {
+  return searchNearbyPlaces(lat, lng, radius, [type], apiKey).catch(() => []);
+}
+
+/**
+ * Search multiple types in parallel (one call per type), deduplicate by ID.
+ */
+async function searchByTypes(lat, lng, radius, types, apiKey) {
+  const results = await Promise.all(types.map(t => searchByType(lat, lng, radius, t, apiKey)));
+  const seen = new Set();
+  const merged = [];
+  for (const batch of results) {
+    for (const p of batch) {
+      if (!seen.has(p.id)) { seen.add(p.id); merged.push(p); }
+    }
+  }
+  return merged;
+}
+
+/**
+ * Get city POIs (museums, parks, landmarks, restaurants, etc.)
+ * Makes one API call PER type so we get up to 20 × N unique results.
  */
 export async function getCityPlaces(lat, lng, count, apiKey) {
-  const cityTypes = [
-    'tourist_attraction',
-    'museum',
-    'park',
-    'art_gallery',
-    'church',
-    'city_hall',
-    'landmark'
-  ];
-
-  const radius = 5000; // 5km for city center
-  let places = await searchNearbyPlaces(lat, lng, radius, cityTypes, apiKey);
-
-  // Sort by rating and popularity
-  places.sort((a, b) => {
-    const scoreA = (a.rating || 0) * Math.log(a.userRatingsTotal + 1);
-    const scoreB = (b.rating || 0) * Math.log(b.userRatingsTotal + 1);
-    return scoreB - scoreA;
-  });
-
-  // Get top places and enrich with details
-  const topPlaces = places.slice(0, count * 2);
-  return await enrichPlacesWithDetails(topPlaces, apiKey);
+  const types = ['tourist_attraction', 'museum', 'restaurant'];
+  const places = await searchByTypes(lat, lng, 5000, types, apiKey);
+  places.sort((a, b) =>
+    (b.rating || 0) * Math.log(b.userRatingsTotal + 1) -
+    (a.rating || 0) * Math.log(a.userRatingsTotal + 1)
+  );
+  return enrichPlacesWithDetails(places, apiKey);
 }
 
 /**
  * Get excursion POIs (nature, mountains, lakes, nearby towns)
+ * Makes one API call PER type.
  */
 export async function getExcursionPlaces(lat, lng, count, apiKey) {
-  const excursionTypes = [
-    'natural_feature',
-    'park',
-    'point_of_interest',
-    'tourist_attraction',
-    'locality'
-  ];
+  const types = ['tourist_attraction', 'park', 'natural_feature'];
+  let places = await searchByTypes(lat, lng, 50000, types, apiKey);
 
-  const radius = 50000; // 50km for excursions
-  let places = await searchNearbyPlaces(lat, lng, radius, excursionTypes, apiKey);
+  // Keep only places at least 10 km from center (true day trips)
+  places = places.filter(p => calculateDistance(lat, lng, p.lat, p.lng) > 10);
 
-  // Filter out places too close to center (want day trips, not city center)
-  places = places.filter(place => {
-    const distance = calculateDistance(lat, lng, place.lat, place.lng);
-    return distance > 10; // At least 10km away
-  });
-
-  // Sort by rating
-  places.sort((a, b) => {
-    const scoreA = (a.rating || 0) * Math.log(a.userRatingsTotal + 1);
-    const scoreB = (b.rating || 0) * Math.log(b.userRatingsTotal + 1);
-    return scoreB - scoreA;
-  });
-
-  // Get top places and enrich with details
-  const topPlaces = places.slice(0, count * 2);
-  return await enrichPlacesWithDetails(topPlaces, apiKey);
+  places.sort((a, b) =>
+    (b.rating || 0) * Math.log(b.userRatingsTotal + 1) -
+    (a.rating || 0) * Math.log(a.userRatingsTotal + 1)
+  );
+  return enrichPlacesWithDetails(places, apiKey);
 }
 
 /**
- * Get detailed information about a place including description
+ * Get place details including description
  */
 export async function getPlaceDetails(placeId, apiKey) {
   try {
@@ -184,14 +177,22 @@ export async function getPlaceDetails(placeId, apiKey) {
 }
 
 /**
- * Enrich places with detailed descriptions
+ * Enrich places with detailed descriptions.
+ * Only calls the Details API for the first ENRICH_LIMIT places to control cost,
+ * but RETURNS all places so every day gets unique stops.
  */
 export async function enrichPlacesWithDetails(places, apiKey) {
-  // Only enrich first few places to save API calls
-  const placesToEnrich = places.slice(0, Math.min(places.length, 15));
-  
-  const enrichedPlaces = await Promise.all(
-    placesToEnrich.map(async (place) => {
+  const ENRICH_LIMIT = 20;
+  const toEnrich = places.slice(0, ENRICH_LIMIT);
+  const rest = places.slice(ENRICH_LIMIT).map(p => ({
+    ...p,
+    description: '',
+    website: '',
+    phone: ''
+  }));
+
+  const enriched = await Promise.all(
+    toEnrich.map(async (place) => {
       const details = await getPlaceDetails(place.id, apiKey);
       return {
         ...place,
@@ -202,7 +203,39 @@ export async function enrichPlacesWithDetails(places, apiKey) {
     })
   );
 
-  return enrichedPlaces;
+  return [...enriched, ...rest];
+}
+
+/**
+ * Get a single replacement stop, excluding already-used place IDs
+ */
+export async function getReplacementStop(lat, lng, dayType, excludeIds, apiKey) {
+  const excludeSet = new Set(excludeIds);
+  let places;
+
+  if (dayType === 'city') {
+    places = await searchByTypes(lat, lng, 5000, [
+      'tourist_attraction', 'museum', 'park', 'art_gallery',
+      'restaurant', 'cafe', 'bar', 'shopping_mall'
+    ], apiKey);
+  } else {
+    const all = await searchByTypes(lat, lng, 50000, [
+      'tourist_attraction', 'natural_feature', 'park', 'campground', 'amusement_park'
+    ], apiKey);
+    places = all.filter(p => calculateDistance(lat, lng, p.lat, p.lng) > 10);
+  }
+
+  // Only candidates not already in the trip
+  const candidates = places.filter(p => !excludeSet.has(p.id));
+  candidates.sort((a, b) => {
+    const sA = (a.rating || 0) * Math.log(a.userRatingsTotal + 1);
+    const sB = (b.rating || 0) * Math.log(b.userRatingsTotal + 1);
+    return sB - sA;
+  });
+
+  if (candidates.length === 0) return null;
+  const enriched = await enrichPlacesWithDetails([candidates[0]], apiKey);
+  return enriched[0];
 }
 
 /**

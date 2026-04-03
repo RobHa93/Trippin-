@@ -9,7 +9,7 @@ Persönliche KI-gestützte Reiseplan-Webapp für automatische mehrtägige Reisep
 - **Ausflugstage**: Natur, Berge, Seen, nahegelegene Orte
 - **Optimierte Auto-Routen** mit Google Directions API
 - **Interaktive Karte** mit Markers und Route-Polyline
-- **Flexibler Planungsstil**: Gemütlich (~5 Stops/Tag) oder Vollgepackt (~8 Stops/Tag)
+- **Flexibler Planungsstil**: Gemütlich (~5 Stops/Tag) oder Aktiv (~8 Stops/Tag)
 
 ## Architektur
 

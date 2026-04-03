@@ -1,5 +1,6 @@
 import express from 'express';
 import { generateTrip } from '../service/tripPlannerService.js';
+import { getReplacementStop } from '../service/googlePlacesService.js';
 
 const router = express.Router();
 
@@ -53,6 +54,29 @@ router.post('/generate', async (req, res) => {
       error: 'Failed to generate trip',
       message: error.message
     });
+  }
+});
+
+/**
+ * POST /api/trip/replace-stop
+ * Fetch a single replacement stop for a given location and day type
+ */
+router.post('/replace-stop', async (req, res) => {
+  try {
+    const { lat, lng, dayType, excludeIds = [] } = req.body;
+    if (!lat || !lng || !dayType) {
+      return res.status(400).json({ error: 'Missing lat, lng or dayType' });
+    }
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
+
+    const stop = await getReplacementStop(lat, lng, dayType, excludeIds, apiKey);
+    if (!stop) return res.status(404).json({ error: 'No replacement stop found' });
+
+    res.json({ success: true, stop });
+  } catch (error) {
+    console.error('Replace-stop error:', error);
+    res.status(500).json({ error: 'Failed to find replacement stop', message: error.message });
   }
 });
 

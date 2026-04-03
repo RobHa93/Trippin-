@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import DayList from '../components/dayList';
 import DayPlan from '../components/dayPlan';
 import MapView from '../components/mapView';
@@ -10,10 +11,12 @@ import MapView from '../components/mapView';
 export default function TripResult() {
   const location = useLocation();
   const navigate = useNavigate();
-  const trip = location.state?.trip;
+  const initialTrip = location.state?.trip;
 
+  const [trip, setTrip] = useState(initialTrip);
   const [selectedDayNumber, setSelectedDayNumber] = useState(1);
   const [focusedStopIndex, setFocusedStopIndex] = useState(null);
+  const [replacingStop, setReplacingStop] = useState(null); // { dayNumber, stopIndex }
 
   if (!trip) {
     navigate('/');
@@ -23,9 +26,39 @@ export default function TripResult() {
   const selectedDay = trip.days.find(d => d.dayNumber === selectedDayNumber);
   const mapCenter = { lat: trip.meta.centerLat, lng: trip.meta.centerLng };
 
-  // Callback für DayPlan, wenn StopCard expandiert wird
-  const handleFocusStop = (index) => {
-    setFocusedStopIndex(index);
+  const handleFocusStop = (index) => setFocusedStopIndex(index);
+
+  // Collect all currently used place IDs across the whole trip
+  const getAllUsedIds = () => trip.days.flatMap(d => (d.stops || []).map(s => s.id));
+
+  const handleReplaceStop = async (dayNumber, stopIndex) => {
+    const day = trip.days.find(d => d.dayNumber === dayNumber);
+    if (!day) return;
+    setReplacingStop({ dayNumber, stopIndex });
+    try {
+      const excludeIds = getAllUsedIds();
+      const res = await axios.post('/api/trip/replace-stop', {
+        lat: trip.meta.centerLat,
+        lng: trip.meta.centerLng,
+        dayType: day.dayType,
+        excludeIds
+      });
+      if (res.data.success && res.data.stop) {
+        setTrip(prev => ({
+          ...prev,
+          days: prev.days.map(d => {
+            if (d.dayNumber !== dayNumber) return d;
+            const newStops = [...d.stops];
+            newStops[stopIndex] = res.data.stop;
+            return { ...d, stops: newStops };
+          })
+        }));
+      }
+    } catch (err) {
+      console.error('Replace stop failed', err);
+    } finally {
+      setReplacingStop(null);
+    }
   };
 
   return (
@@ -96,7 +129,12 @@ export default function TripResult() {
           <div className="lg:col-span-5">
             <div className="rounded-2xl border border-gray-200 shadow-xl p-4">
               {selectedDay ? (
-                <DayPlan day={selectedDay} onFocusStop={handleFocusStop} />
+                <DayPlan
+                  day={selectedDay}
+                  onFocusStop={handleFocusStop}
+                  onReplaceStop={(stopIndex) => handleReplaceStop(selectedDayNumber, stopIndex)}
+                  replacingStopIndex={replacingStop?.dayNumber === selectedDayNumber ? replacingStop.stopIndex : null}
+                />
               ) : (
                 <div className="p-12 text-center">
                   <p className="text-gray-500">Wähle einen Tag aus</p>

@@ -5,21 +5,28 @@ import React, { useEffect, useRef } from 'react';
  * Note: Requires Google Maps JavaScript API to be loaded
  */
 export default function MapView({ day, center, focusedStopIndex }) {
-    // Zoom auf fokussierten Stop, wenn focusedStopIndex sich ändert
+    // Zoom auf fokussierten Stop, oder zurücksetzen wenn null
     useEffect(() => {
+      if (!mapInstanceRef.current || !window.google) return;
+
+      if (focusedStopIndex === null && day && day.stops && day.stops.length > 0) {
+        // Reset to show all stops
+        const bounds = new window.google.maps.LatLngBounds();
+        day.stops.forEach(stop => bounds.extend({ lat: stop.lat, lng: stop.lng }));
+        mapInstanceRef.current.fitBounds(bounds);
+        return;
+      }
+
       if (
         typeof focusedStopIndex === 'number' &&
         day &&
         day.stops &&
-        day.stops[focusedStopIndex] &&
-        mapInstanceRef.current &&
-        window.google
+        day.stops[focusedStopIndex]
       ) {
         const stop = day.stops[focusedStopIndex];
         const latLng = new window.google.maps.LatLng(stop.lat, stop.lng);
         mapInstanceRef.current.panTo(latLng);
         mapInstanceRef.current.setZoom(15);
-        // Optional: Marker hervorheben (z.B. Animation)
         if (markersRef.current[focusedStopIndex]) {
           markersRef.current[focusedStopIndex].setAnimation(window.google.maps.Animation.BOUNCE);
           setTimeout(() => {

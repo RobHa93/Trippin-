@@ -12,7 +12,7 @@ export async function generateTrip(tripRequest, apiKey) {
     throw new Error('City days + excursion days must equal total days');
   }
 
-  const stopsPerDay = planStyle === 'relaxed' ? 5 : 8;
+  const stopsPerDay = planStyle === 'relaxed' ? 3 : 5;
 
   // Step 1: Geocode the location
   const centerLocation = await geocodeLocation(location, apiKey);
@@ -21,62 +21,48 @@ export async function generateTrip(tripRequest, apiKey) {
   const days = [];
   let dayNumber = 1;
 
-  // Add city days
   for (let i = 0; i < cityDays; i++) {
-    days.push({
-      dayNumber: dayNumber++,
-      dayType: 'city',
-      stopsCount: stopsPerDay
-    });
+    days.push({ dayNumber: dayNumber++, dayType: 'city', stopsCount: stopsPerDay });
   }
-
-  // Add excursion days
   for (let i = 0; i < excursionDays; i++) {
-    days.push({
-      dayNumber: dayNumber++,
-      dayType: 'excursion',
-      stopsCount: stopsPerDay
-    });
+    days.push({ dayNumber: dayNumber++, dayType: 'excursion', stopsCount: stopsPerDay });
   }
 
-  // Step 3: Generate stops for each day
+  // Step 3: Pre-fetch all places needed for all days at once to guarantee unique content
+  const totalCityStops = cityDays * stopsPerDay;
+  const totalExcursionStops = excursionDays * stopsPerDay;
+
+  const [allCityPlaces, allExcursionPlaces] = await Promise.all([
+    cityDays > 0 ? getCityPlaces(centerLocation.lat, centerLocation.lng, totalCityStops, apiKey) : Promise.resolve([]),
+    excursionDays > 0 ? getExcursionPlaces(centerLocation.lat, centerLocation.lng, totalExcursionStops, apiKey) : Promise.resolve([])
+  ]);
+
+  // Distribute places across days from the pre-fetched pool
+  let cityPool = [...allCityPlaces];
+  let excursionPool = [...allExcursionPlaces];
+
+  // Step 4: Generate stops for each day
   const generatedDays = [];
-  const usedPlaceIds = new Set(); // Track used places to avoid duplicates
 
   for (const day of days) {
     let stops;
 
     if (day.dayType === 'city') {
-      stops = await getCityPlaces(
-        centerLocation.lat,
-        centerLocation.lng,
-        day.stopsCount,
-        apiKey
-      );
+      // Take next slice from the pre-fetched city pool
+      stops = cityPool.splice(0, day.stopsCount);
     } else {
-      stops = await getExcursionPlaces(
-        centerLocation.lat,
-        centerLocation.lng,
-        day.stopsCount,
-        apiKey
-      );
+      // Take next slice from the pre-fetched excursion pool
+      stops = excursionPool.splice(0, day.stopsCount);
     }
 
-    // Filter out already used places
-    const availableStops = stops.filter(stop => !usedPlaceIds.has(stop.id));
-    
-    // Take only what we need and mark as used
-    const selectedStops = availableStops.slice(0, day.stopsCount);
-    selectedStops.forEach(stop => usedPlaceIds.add(stop.id));
-
     // Optimize stop order using greedy nearest-neighbor
-    const optimizedStops = optimizeStopOrder(selectedStops);
+    const optimizedStops = optimizeStopOrder(stops);
 
     // Calculate route for the day
     let route = null;
     if (optimizedStops.length >= 2) {
       route = await calculateRoute(optimizedStops, apiKey);
-      
+
       // Reorder stops based on optimized waypoint order
       if (route.waypointOrder && route.waypointOrder.length > 0) {
         const reorderedStops = [optimizedStops[0]]; // Keep first stop
@@ -84,7 +70,7 @@ export async function generateTrip(tripRequest, apiKey) {
           reorderedStops.push(optimizedStops[index + 1]); // +1 because waypoints exclude origin
         });
         reorderedStops.push(optimizedStops[optimizedStops.length - 1]); // Keep last stop
-        
+
         generatedDays.push({
           ...day,
           stops: reorderedStops,
@@ -131,7 +117,7 @@ function optimizeStopOrder(stops) {
 
   while (remaining.length > 0) {
     const current = optimized[optimized.length - 1];
-    
+
     // Find nearest remaining stop
     let nearestIndex = 0;
     let nearestDistance = calculateDistance(
@@ -168,7 +154,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLng / 2) * Math.sin(dLng / 2);
