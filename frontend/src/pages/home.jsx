@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import vacationImg from '../assets/img/vacationimg2.png'; 
 
 export default function Home() {
   const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function Home() {
           <div className="flex-col hidden lg:flex lg:col-span-2">
             <div className="w-full mt-20 overflow-hidden shadow-2xl rounded-3xl" style={{ minHeight: '250px' }}>
               <img
-                src="/src/assets/img/vacationimg2.png"
+                src={vacationImg}
                 alt="Vacation"
                 className="object-fill w-full h-full"
                 style={{ minHeight: '250px' }}
