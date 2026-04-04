@@ -4,6 +4,7 @@ import axios from 'axios';
 import DayList from '../components/dayList';
 import DayPlan from '../components/dayPlan';
 import MapView from '../components/mapView';
+import WeatherWidget from '../components/weatherWidget';
 
 /**
  * Page to display trip results with day-by-day view
@@ -50,7 +51,8 @@ export default function TripResult() {
             if (d.dayNumber !== dayNumber) return d;
             const newStops = [...d.stops];
             newStops[stopIndex] = res.data.stop;
-            return { ...d, stops: newStops };
+            // Clear stale route so MapView redraws with correct stop positions
+            return { ...d, stops: newStops, route: null };
           })
         }));
       }
@@ -62,11 +64,11 @@ export default function TripResult() {
   };
 
   return (
-    <div className="min-h-screen absolute inset-0 bg-gradient-to-br from-slate-100 via-white to-slate-200">
+    <div className="min-h-screen absolute inset-0 overflow-x-hidden bg-gradient-to-br from-slate-100 via-white to-slate-200">
       
       {/* Header */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
@@ -88,12 +90,12 @@ export default function TripResult() {
       </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-4 sm:px-6 py-8 w-full max-w-full overflow-x-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Left Side - Day Selector */}
           <div className="hidden lg:block lg:col-span-3">
-            <div className="sticky top-24">
+            <div className="sticky top-24 flex flex-col gap-4">
               <div className="rounded-2xl border border-gray-200 shadow-lg 
                               hover:shadow-xl transition-all duration-300">
                 <DayList
@@ -102,26 +104,37 @@ export default function TripResult() {
                   onSelectDay={setSelectedDayNumber}
                 />
               </div>
+              <WeatherWidget
+                lat={trip.meta.centerLat}
+                lng={trip.meta.centerLng}
+              />
             </div>
           </div>
 
           {/* Mobile Day Selector */}
           <div className="lg:hidden">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {trip.days.map((day) => (
-                <button
-                  key={day.dayNumber}
-                  onClick={() => setSelectedDayNumber(day.dayNumber)}
-                  className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium 
-                              transition-all duration-300 shadow-sm ${
-                    selectedDayNumber === day.dayNumber
-                      ? 'bg-gray-900 text-white shadow-md'
-                      : 'bg-gray-900 border border-gray-200 text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Tag {day.dayNumber}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 flex-1 min-w-0">
+                {trip.days.map((day) => (
+                  <button
+                    key={day.dayNumber}
+                    onClick={() => setSelectedDayNumber(day.dayNumber)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium 
+                                transition-all duration-300 shadow-sm ${
+                      selectedDayNumber === day.dayNumber
+                        ? 'bg-gray-900 text-white shadow-md'
+                        : 'bg-gray-900 border border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Tag {day.dayNumber}
+                  </button>
+                ))}
+              </div>
+              <WeatherWidget
+                lat={trip.meta.centerLat}
+                lng={trip.meta.centerLng}
+                compact
+              />
             </div>
           </div>
 

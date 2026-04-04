@@ -110,7 +110,7 @@ function SplashScreen({ onDone }) {
           ✈️ Trippin'
         </div>
         <div style={{ color: '#9ca3af', fontSize: 13, marginTop: 6 }}>
-          Dein KI-Reiseplaner
+          Dein Reiseplaner
         </div>
       </div>
     </div>

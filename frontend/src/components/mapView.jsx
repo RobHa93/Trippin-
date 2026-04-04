@@ -89,7 +89,7 @@ export default function MapView({ day, center, focusedStopIndex }) {
       bounds.extend({ lat: stop.lat, lng: stop.lng });
     });
 
-    // Draw route polyline if available
+    // Draw route polyline if available, otherwise draw a straight-line fallback
     if (day.route && day.route.polyline) {
       const decodedPath = window.google.maps.geometry.encoding.decodePath(
         day.route.polyline
@@ -101,6 +101,16 @@ export default function MapView({ day, center, focusedStopIndex }) {
         strokeColor: '#3b82f6',
         strokeOpacity: 0.8,
         strokeWeight: 4,
+        map: mapInstanceRef.current
+      });
+    } else if (day.stops && day.stops.length > 1) {
+      // Fallback: connect stops with a simple geodesic line (e.g. after stop replacement)
+      polylineRef.current = new window.google.maps.Polyline({
+        path: day.stops.map(s => ({ lat: s.lat, lng: s.lng })),
+        geodesic: true,
+        strokeColor: '#3b82f6',
+        strokeOpacity: 0.45,
+        strokeWeight: 3,
         map: mapInstanceRef.current
       });
     }

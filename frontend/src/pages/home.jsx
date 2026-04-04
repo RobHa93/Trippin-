@@ -66,45 +66,15 @@ export default function Home() {
         {/* Content Grid: image left + form right */}
         <div className="grid items-start max-w-5xl grid-cols-1 gap-8 mx-auto lg:grid-cols-5">
 
-          {/* Left – Scene Placeholder (desktop only) */}
+          {/* Left – Vacation Image (desktop only) */}
           <div className="flex-col hidden lg:flex lg:col-span-2">
-            <div
-              className="relative flex flex-col justify-end w-full overflow-hidden shadow-2xl rounded-3xl"
-              style={{ background: 'linear-gradient(160deg, #38bdf8 0%, #0ea5e9 35%, #0284c7 60%, #1d4ed8 100%)', minHeight: '520px' }}
-            >
-              {/* Sky & clouds */}
-              <div className="absolute w-20 h-6 rounded-full top-6 left-6 bg-white/50 blur-sm"></div>
-              <div className="absolute h-5 rounded-full top-10 left-14 w-28 bg-white/40 blur-sm"></div>
-              <div className="absolute w-16 h-5 rounded-full top-8 right-10 bg-white/40 blur-sm"></div>
-
-              {/* Sun */}
-              <div className="absolute flex items-center justify-center w-16 h-16 rounded-full top-8 right-8"
-                style={{ background: 'radial-gradient(circle, #fde68a 40%, #fbbf24 70%, transparent 100%)', boxShadow: '0 0 40px 12px rgba(251,191,36,0.4)' }}>
-                <span className="text-2xl">☀️</span>
-              </div>
-
-              {/* Ocean water */}
-              <div className="absolute bottom-0 left-0 right-0 h-2/5"
-                style={{ background: 'linear-gradient(to top, #0c4a6e 0%, #0369a1 50%, #38bdf8 100%)', opacity: 0.85 }}>
-              </div>
-
-              {/* Water rings */}
-              <div className="absolute w-48 h-10 -translate-x-1/2 border-4 rounded-full bottom-24 left-1/2 border-cyan-300/50"></div>
-              <div className="absolute w-32 h-6 -translate-x-1/2 border-2 rounded-full bottom-20 left-1/2 border-cyan-200/40"></div>
-
-              {/* Palm tree */}
-              <div className="absolute bottom-[36%] left-1/2 -translate-x-[55%] select-none">
-                <span className="text-7xl" style={{ filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.35))' }}>🌴</span>
-              </div>
-
-              {/* Sparkles */}
-              <div className="absolute text-lg select-none top-1/3 left-8 text-yellow-200/70">✦</div>
-              <div className="absolute text-sm select-none top-1/4 right-16 text-yellow-100/60">✦</div>
-
-              {/* Bottom label */}
-              <div className="relative z-10 pb-5 text-center">
-                <p className="text-xs font-medium tracking-widest uppercase text-white/60">Dein nächstes Abenteuer wartet</p>
-              </div>
+            <div className="w-full mt-20 overflow-hidden shadow-2xl rounded-3xl" style={{ minHeight: '250px' }}>
+              <img
+                src="/src/assets/img/vacationimg2.png"
+                alt="Vacation"
+                className="object-fill w-full h-full"
+                style={{ minHeight: '250px' }}
+              />
             </div>
           </div>
 
