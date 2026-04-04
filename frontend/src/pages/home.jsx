@@ -69,7 +69,7 @@ export default function Home() {
 
           {/* Left – Vacation Image (desktop only) */}
           <div className="flex-col hidden lg:flex lg:col-span-2">
-            <div className="w-full mt-20 overflow-hidden shadow-2xl rounded-3xl" style={{ minHeight: '250px' }}>
+            <div className="w-full mt-20 overflow-hidden" style={{ minHeight: '250px' }}>
               <img
                 src={vacationImg}
                 alt="Vacation"
