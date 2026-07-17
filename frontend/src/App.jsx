@@ -3,6 +3,10 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './pages/home';
 import TripPlanner from './pages/tripPlanner';
 import TripResult from './pages/tripResult';
+import Login from './pages/login';
+import SavedTrips from './pages/savedTrips';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function SplashScreen({ onDone }) {
   const [fading, setFading] = useState(false);
@@ -124,11 +128,16 @@ function App() {
     <>
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
       <Router>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/planner" element={<TripPlanner />} />
-          <Route path="/result" element={<TripResult />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/planner" element={<ProtectedRoute><TripPlanner /></ProtectedRoute>} />
+            <Route path="/result" element={<ProtectedRoute><TripResult /></ProtectedRoute>} />
+            <Route path="/trips/:tripId" element={<ProtectedRoute><TripResult /></ProtectedRoute>} />
+            <Route path="/saved" element={<ProtectedRoute><SavedTrips /></ProtectedRoute>} />
+          </Routes>
+        </AuthProvider>
       </Router>
     </>
   );

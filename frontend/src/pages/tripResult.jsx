@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import DayList from '../components/dayList';
 import DayPlan from '../components/dayPlan';
 import MapView from '../components/mapView';
 import WeatherWidget from '../components/weatherWidget';
+import UserMenu from '../components/userMenu';
+import LoadingSpinner from '../components/loadingSpinner';
+import { useAuth } from '../context/AuthContext';
+import { saveTrip, deleteTrip, getTrip } from '../services/tripsService';
 
 /**
  * Page to display trip results with day-by-day view
@@ -12,12 +16,62 @@ import WeatherWidget from '../components/weatherWidget';
 export default function TripResult() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { tripId: routeTripId } = useParams();
+  const { user } = useAuth();
   const initialTrip = location.state?.trip;
 
   const [trip, setTrip] = useState(initialTrip);
+  const [savedTripId, setSavedTripId] = useState(routeTripId || null);
+  const [loadingTrip, setLoadingTrip] = useState(!initialTrip && !!routeTripId);
+  const [saving, setSaving] = useState(false);
   const [selectedDayNumber, setSelectedDayNumber] = useState(1);
   const [focusedStopIndex, setFocusedStopIndex] = useState(null);
   const [replacingStop, setReplacingStop] = useState(null); // { dayNumber, stopIndex }
+
+  useEffect(() => {
+    if (!initialTrip && routeTripId) {
+      setLoadingTrip(true);
+      getTrip(routeTripId)
+        .then((data) => {
+          if (data) {
+            setTrip(data.trip);
+            setSavedTripId(data.id);
+          } else {
+            navigate('/saved', { replace: true });
+          }
+        })
+        .finally(() => setLoadingTrip(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeTripId]);
+
+  const handleToggleSave = async () => {
+    if (!user || saving) return;
+    setSaving(true);
+    try {
+      if (savedTripId) {
+        await deleteTrip(savedTripId);
+        setSavedTripId(null);
+        navigate('/result', { replace: true, state: { trip } });
+      } else {
+        const id = await saveTrip(user.uid, trip);
+        setSavedTripId(id);
+        navigate(`/trips/${id}`, { replace: true, state: { trip } });
+      }
+    } catch (err) {
+      console.error('Save trip failed', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loadingTrip) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200">
+        <LoadingSpinner text="Reiseplan wird geladen..." />
+      </div>
+    );
+  }
 
   if (!trip) {
     navigate('/');
@@ -78,13 +132,28 @@ export default function TripResult() {
                 {trip.meta.totalDays} Tage · {trip.meta.cityDays} Stadttage · {trip.meta.excursionDays} Ausflugstage
               </p>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium 
-                         hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow"
-            >
-              ← Neue Planung
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleSave}
+                disabled={saving}
+                title={savedTripId ? 'Reise nicht mehr speichern' : 'Ganze Reise speichern'}
+                className={`w-10 h-10 rounded-lg border text-lg flex items-center justify-center transition-all duration-300 shadow-sm hover:shadow disabled:opacity-50 ${
+                  savedTripId
+                    ? 'bg-pink-50 border-pink-200 text-pink-600'
+                    : 'bg-white border-gray-200 text-gray-400 hover:text-pink-500'
+                }`}
+              >
+                {savedTripId ? '❤️' : '🤍'}
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium
+                           hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow"
+              >
+                ← Neue Planung
+              </button>
+              <UserMenu fixed={false} />
+            </div>
           </div>
         </div>
       </header>

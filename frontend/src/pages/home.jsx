@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import vacationImg from '../assets/img/vacationimg2.png'; 
+import vacationImg from '../assets/img/vacationimg2.png';
+import UserMenu from '../components/userMenu';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -50,6 +51,8 @@ export default function Home() {
       {/* Decorative circles */}
       <div className="absolute w-64 h-64 rounded-full top-20 right-20 bg-yellow-300/20 blur-3xl"></div>
       <div className="absolute rounded-full bottom-20 left-20 w-96 h-96 bg-orange-400/20 blur-3xl"></div>
+
+      <UserMenu />
 
       <div className="container relative px-4 py-8 mx-auto">
 
