@@ -73,11 +73,13 @@ export default function MapView({ day, center, focusedStopIndex }) {
     // Create markers for stops
     const bounds = new window.google.maps.LatLngBounds();
 
+    const isMealDay = day.dayType === 'meal';
+
     day.stops.forEach((stop, index) => {
       const marker = new window.google.maps.Marker({
         position: { lat: stop.lat, lng: stop.lng },
         map: mapInstanceRef.current,
-        label: {
+        label: isMealDay ? undefined : {
           text: `${index + 1}`,
           color: 'white',
           fontWeight: 'bold'
@@ -103,7 +105,7 @@ export default function MapView({ day, center, focusedStopIndex }) {
         strokeWeight: 4,
         map: mapInstanceRef.current
       });
-    } else if (day.stops && day.stops.length > 1) {
+    } else if (!isMealDay && day.stops && day.stops.length > 1) {
       // Fallback: connect stops with a simple geodesic line (e.g. after stop replacement)
       polylineRef.current = new window.google.maps.Polyline({
         path: day.stops.map(s => ({ lat: s.lat, lng: s.lng })),

@@ -32,14 +32,15 @@ export default function DayPlan({ day, onFocusStop, onReplaceStop, replacingStop
     return url;
   };
 
-  const mapsUrl = buildGoogleMapsUrl();
+  const isMealDay = day.dayType === 'meal';
+  const mapsUrl = isMealDay ? null : buildGoogleMapsUrl();
 
   return (
     <div className="rounded-lg p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">
-            Tag {day.dayNumber}
+            {isMealDay ? getDayTypeLabel(day.dayType, day.mealType) : `Tag ${day.dayNumber}`}
           </h2>
           <div className="flex items-center gap-2">
             {mapsUrl && (
@@ -59,9 +60,11 @@ export default function DayPlan({ day, onFocusStop, onReplaceStop, replacingStop
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               day.dayType === 'city'
                 ? 'bg-blue-100 text-blue-800'
+                : day.dayType === 'meal'
+                ? 'bg-rose-100 text-rose-800'
                 : 'bg-green-100 text-green-800'
             }`}>
-              {getDayTypeLabel(day.dayType)}
+              {getDayTypeLabel(day.dayType, day.mealType)}
             </span>
           </div>
         </div>
@@ -94,6 +97,7 @@ export default function DayPlan({ day, onFocusStop, onReplaceStop, replacingStop
               onCollapse={handleCollapse}
               onReplace={onReplaceStop ? () => onReplaceStop(index) : null}
               isReplacing={replacingStopIndex === index}
+              showOrderBadge={!isMealDay}
             />
           ))
         ) : (

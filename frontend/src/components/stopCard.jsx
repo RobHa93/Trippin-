@@ -1,9 +1,20 @@
 import React, { useState, useRef } from 'react';
+import { getPhotoUrl } from '../utils/formatUtils';
+
+const MEAL_ICONS = { restaurant: '🍽️', meal_takeaway: '🥡', bar: '🍹' };
+
+function getMealIcon(types) {
+  const match = types?.find(t => MEAL_ICONS[t]);
+  return match ? MEAL_ICONS[match] : '🍴';
+}
 
 /**
- * Component to display a single stop with expandable details
+ * Component to display a single stop with expandable details.
+ * showOrderBadge=false renders the stop as an independent suggestion
+ * (category icon instead of a sequence number, plus a direct directions link)
+ * rather than as an ordered itinerary stop.
  */
-export default function StopCard({ stop, index, onExpand, onCollapse, onReplace, isReplacing }) {
+export default function StopCard({ stop, index, onExpand, onCollapse, onReplace, isReplacing, showOrderBadge = true }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const cardRef = useRef(null);
 
@@ -14,19 +25,14 @@ export default function StopCard({ stop, index, onExpand, onCollapse, onReplace,
     return primaryType.charAt(0).toUpperCase() + primaryType.slice(1);
   };
 
-  // Get photo URL from reference
-  const getPhotoUrl = (photoRef) => {
-    if (!photoRef) return null;
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${apiKey}`;
-  };
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}&destination_place_id=${stop.id}&travelmode=driving`;
 
   return (
     <div ref={cardRef} className="overflow-hidden transition-shadow bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md">
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="flex items-center justify-center flex-shrink-0 w-8 h-8 font-semibold text-white rounded-full bg-primary-500">
-            {index + 1}
+            {showOrderBadge ? index + 1 : getMealIcon(stop.types)}
           </div>
           <div className="flex-1 min-w-0">
             <h3
@@ -183,18 +189,34 @@ export default function StopCard({ stop, index, onExpand, onCollapse, onReplace,
               )}
             </div>
             
-            {/* Google Maps Link */}
-            <a
-              href={`https://www.google.com/maps/place/?q=place_id:${stop.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
-            >
-              <span>Auf Google Maps öffnen</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
+            {/* Google Maps Links */}
+            <div className="flex flex-wrap items-center gap-4">
+              {!showOrderBadge && (
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700"
+                >
+                  <span>Route dorthin</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </a>
+              )}
+              <a
+                href={`https://www.google.com/maps/place/?q=place_id:${stop.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                <span>Auf Google Maps öffnen</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
           </div>
         </div>
       )}

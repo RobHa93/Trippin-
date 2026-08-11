@@ -8,11 +8,22 @@ export default function Home() {
 
   const [formData, setFormData] = useState({
     location: '',
+    mode: 'activity',
+    cuisine: '',
     totalDays: 3,
     planStyle: 'relaxed',
     cityDays: 3,
     excursionDays: 0
   });
+
+  const MODE_OPTIONS = [
+    { value: 'activity', label: 'Aktivität', emoji: '🧭' },
+    { value: 'breakfast', label: 'Frühstück', emoji: '🥐' },
+    { value: 'lunch', label: 'Mittagessen', emoji: '🍽️' },
+    { value: 'dinner', label: 'Abendessen', emoji: '🌙' }
+  ];
+
+  const CUISINE_OPTIONS = ['Egal', 'Pizza', 'Pasta', 'Mediterran', 'Asiatisch', 'Vegetarisch'];
 
   const [error, setError] = useState('');
 
@@ -21,12 +32,23 @@ export default function Home() {
     setError('');
   };
 
+  const isMealMode = formData.mode !== 'activity';
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.location.trim()) {
       setError('Bitte gib einen Ort ein');
       return;
     }
+
+    if (isMealMode) {
+      const cuisine = formData.cuisine && formData.cuisine !== 'Egal' ? formData.cuisine : undefined;
+      navigate('/planner', {
+        state: { tripRequest: { location: formData.location, mode: formData.mode, cuisine } }
+      });
+      return;
+    }
+
     if (formData.cityDays + formData.excursionDays !== formData.totalDays) {
       setError('Stadttage + Ausflugstage muss Gesamttage entsprechen');
       return;
@@ -101,6 +123,63 @@ export default function Home() {
                   />
                 </div>
 
+                {/* Mode Selector */}
+                <div>
+                  <label className="block mb-2 text-sm font-semibold text-gray-800">
+                    Was möchtest du?
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {MODE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleChange('mode', opt.value)}
+                        className={`relative p-3 rounded-2xl transition-all duration-200 text-center ${
+                          formData.mode === opt.value
+                            ? 'bg-gradient-to-br from-orange-400 to-pink-500 text-white shadow-lg scale-105'
+                            : 'bg-white text-gray-700 shadow-sm hover:shadow-md border border-gray-200'
+                        }`}
+                      >
+                        <div className="text-xl">{opt.emoji}</div>
+                        <div className="text-xs font-semibold mt-0.5">{opt.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {isMealMode && (
+                  <div className="p-4 border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                    <label className="block mb-3 text-sm font-semibold text-gray-800">
+                      Küchenrichtung (optional)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {CUISINE_OPTIONS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => handleChange('cuisine', c)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                            (formData.cuisine || 'Egal') === c
+                              ? 'bg-orange-500 text-white shadow-sm'
+                              : 'bg-white text-gray-600 border border-gray-200 hover:shadow-sm'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={CUISINE_OPTIONS.includes(formData.cuisine) || !formData.cuisine ? '' : formData.cuisine}
+                      onChange={(e) => handleChange('cuisine', e.target.value)}
+                      placeholder="Oder etwas anderes eingeben, z.B. Tapas"
+                      className="w-full mt-3 px-3 py-2 text-sm bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition"
+                    />
+                  </div>
+                )}
+
+                {!isMealMode && (
+                <>
                 {/* Total Days */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-1.5">
@@ -236,6 +315,8 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+                </>
+                )}
 
                 {/* Error Message */}
                 {error && (

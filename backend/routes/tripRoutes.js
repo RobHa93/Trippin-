@@ -10,28 +10,38 @@ const router = express.Router();
  */
 router.post('/generate', async (req, res) => {
   try {
-    const { location, totalDays, planStyle, cityDays, excursionDays } = req.body;
+    const { location, mode, totalDays, planStyle, cityDays, excursionDays } = req.body;
+    const isMealMode = ['breakfast', 'lunch', 'dinner'].includes(mode);
 
-    // Validate required fields
-    if (!location || !totalDays || !planStyle || cityDays === undefined || excursionDays === undefined) {
+    if (!location) {
       return res.status(400).json({
         error: 'Missing required fields',
-        required: ['location', 'totalDays', 'planStyle', 'cityDays', 'excursionDays']
+        required: ['location']
       });
     }
 
-    // Validate plan style
-    if (planStyle !== 'relaxed' && planStyle !== 'packed') {
-      return res.status(400).json({
-        error: 'Invalid plan style. Must be "relaxed" or "packed"'
-      });
-    }
+    if (!isMealMode) {
+      // Validate required fields
+      if (!totalDays || !planStyle || cityDays === undefined || excursionDays === undefined) {
+        return res.status(400).json({
+          error: 'Missing required fields',
+          required: ['location', 'totalDays', 'planStyle', 'cityDays', 'excursionDays']
+        });
+      }
 
-    // Validate days
-    if (cityDays + excursionDays !== totalDays) {
-      return res.status(400).json({
-        error: 'City days + excursion days must equal total days'
-      });
+      // Validate plan style
+      if (planStyle !== 'relaxed' && planStyle !== 'packed') {
+        return res.status(400).json({
+          error: 'Invalid plan style. Must be "relaxed" or "packed"'
+        });
+      }
+
+      // Validate days
+      if (cityDays + excursionDays !== totalDays) {
+        return res.status(400).json({
+          error: 'City days + excursion days must equal total days'
+        });
+      }
     }
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;

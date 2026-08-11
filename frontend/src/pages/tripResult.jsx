@@ -9,6 +9,7 @@ import UserMenu from '../components/userMenu';
 import LoadingSpinner from '../components/loadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { saveTrip, deleteTrip, getTrip } from '../services/tripsService';
+import { getDayTypeLabel } from '../utils/formatUtils';
 
 /**
  * Page to display trip results with day-by-day view
@@ -80,6 +81,7 @@ export default function TripResult() {
 
   const selectedDay = trip.days.find(d => d.dayNumber === selectedDayNumber);
   const mapCenter = { lat: trip.meta.centerLat, lng: trip.meta.centerLng };
+  const isMealTrip = trip.days?.[0]?.dayType === 'meal';
 
   const handleFocusStop = (index) => setFocusedStopIndex(index);
 
@@ -129,7 +131,9 @@ export default function TripResult() {
                 {trip.meta.location}
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                {trip.meta.totalDays} Tage · {trip.meta.cityDays} Stadttage · {trip.meta.excursionDays} Ausflugstage
+                {isMealTrip
+                  ? `${getDayTypeLabel('meal', trip.days[0].mealType)} · ${trip.days[0].stops?.length || 0} Vorschläge`
+                  : `${trip.meta.totalDays} Tage · ${trip.meta.cityDays} Stadttage · ${trip.meta.excursionDays} Ausflugstage`}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -214,7 +218,7 @@ export default function TripResult() {
                 <DayPlan
                   day={selectedDay}
                   onFocusStop={handleFocusStop}
-                  onReplaceStop={(stopIndex) => handleReplaceStop(selectedDayNumber, stopIndex)}
+                  onReplaceStop={selectedDay.dayType === 'meal' ? null : (stopIndex) => handleReplaceStop(selectedDayNumber, stopIndex)}
                   replacingStopIndex={replacingStop?.dayNumber === selectedDayNumber ? replacingStop.stopIndex : null}
                 />
               ) : (

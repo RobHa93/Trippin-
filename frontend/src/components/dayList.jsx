@@ -27,7 +27,7 @@ export default function DayList({ days, selectedDay, onSelectDay }) {
                   Tag {day.dayNumber}
                 </div>
                 <div className="text-sm text-gray-500 mt-1">
-                  {getDayTypeLabel(day.dayType)} · {day.stops?.length || 0} Stops
+                  {getDayTypeLabel(day.dayType, day.mealType)} · {day.stops?.length || 0} {day.dayType === 'meal' ? 'Vorschläge' : 'Stops'}
                 </div>
               </div>
               {selectedDay === day.dayNumber && (

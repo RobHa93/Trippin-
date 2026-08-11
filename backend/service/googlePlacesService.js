@@ -1,50 +1,65 @@
 import axios from 'axios';
+import { withCache, TTL } from './cache.js';
 
 const GOOGLE_PLACES_API = 'https://maps.googleapis.com/maps/api/place';
 const GOOGLE_GEOCODING_API = 'https://maps.googleapis.com/maps/api/geocode';
+
+function round(coord) {
+  return Math.round(coord * 100) / 100; // ~1km precision, enough to bucket repeat requests
+}
 
 /**
  * Get coordinates for a location (city or region)
  */
 export async function geocodeLocation(location, apiKey) {
-  try {
-    const response = await axios.get(`${GOOGLE_GEOCODING_API}/json`, {
-      params: {
-        address: location,
-        key: apiKey
+  const key = `geocode:${location.trim().toLowerCase()}`;
+  return withCache(key, TTL.GEOCODE, async () => {
+    try {
+      const response = await axios.get(`${GOOGLE_GEOCODING_API}/json`, {
+        params: {
+          address: location,
+          key: apiKey
+        }
+      });
+
+      if (response.data.status === 'OK' && response.data.results.length > 0) {
+        const result = response.data.results[0];
+        return {
+          lat: result.geometry.location.lat,
+          lng: result.geometry.location.lng,
+          formattedAddress: result.formatted_address
+        };
       }
-    });
 
-    if (response.data.status === 'OK' && response.data.results.length > 0) {
-      const result = response.data.results[0];
-      return {
-        lat: result.geometry.location.lat,
-        lng: result.geometry.location.lng,
-        formattedAddress: result.formatted_address
-      };
+      throw new Error(`Geocoding failed: ${response.data.status}`);
+    } catch (error) {
+      console.error('Geocoding error:', error.message);
+      console.error('Full error:', error.response?.data || error);
+      throw error;
     }
-
-    throw new Error(`Geocoding failed: ${response.data.status}`);
-  } catch (error) {
-    console.error('Geocoding error:', error.message);
-    console.error('Full error:', error.response?.data || error);
-    throw error;
-  }
+  });
 }
 
 /**
- * Search for places near a location
+ * Search for places near a location. Optional `keyword` narrows results
+ * (e.g. a cuisine like "Pizza") without needing a separate API call type.
  */
-export async function searchNearbyPlaces(lat, lng, radius, types, apiKey) {
+export async function searchNearbyPlaces(lat, lng, radius, types, apiKey, keyword) {
+  const cacheKey = `nearby:${round(lat)},${round(lng)}:${radius}:${[...types].sort().join(',')}:${keyword || ''}`;
+  return withCache(cacheKey, TTL.NEARBY_SEARCH, () => fetchNearbyPlaces(lat, lng, radius, types, apiKey, keyword));
+}
+
+async function fetchNearbyPlaces(lat, lng, radius, types, apiKey, keyword) {
   try {
-    const response = await axios.get(`${GOOGLE_PLACES_API}/nearbysearch/json`, {
-      params: {
-        location: `${lat},${lng}`,
-        radius: radius,
-        type: types.join('|'),
-        key: apiKey
-      }
-    });
+    const params = {
+      location: `${lat},${lng}`,
+      radius: radius,
+      type: types.join('|'),
+      key: apiKey
+    };
+    if (keyword) params.keyword = keyword;
+
+    const response = await axios.get(`${GOOGLE_PLACES_API}/nearbysearch/json`, { params });
 
     if (response.data.status === 'OK' || response.data.status === 'ZERO_RESULTS') {
       return response.data.results.map(place => ({
@@ -79,15 +94,15 @@ export async function searchNearbyPlaces(lat, lng, radius, types, apiKey) {
  * Search places for a single type. Google Places API only supports one type per call.
  * Returns up to 20 results.
  */
-async function searchByType(lat, lng, radius, type, apiKey) {
-  return searchNearbyPlaces(lat, lng, radius, [type], apiKey).catch(() => []);
+async function searchByType(lat, lng, radius, type, apiKey, keyword) {
+  return searchNearbyPlaces(lat, lng, radius, [type], apiKey, keyword).catch(() => []);
 }
 
 /**
  * Search multiple types in parallel (one call per type), deduplicate by ID.
  */
-async function searchByTypes(lat, lng, radius, types, apiKey) {
-  const results = await Promise.all(types.map(t => searchByType(lat, lng, radius, t, apiKey)));
+async function searchByTypes(lat, lng, radius, types, apiKey, keyword) {
+  const results = await Promise.all(types.map(t => searchByType(lat, lng, radius, t, apiKey, keyword)));
   const seen = new Set();
   const merged = [];
   for (const batch of results) {
@@ -131,9 +146,37 @@ export async function getExcursionPlaces(lat, lng, count, apiKey) {
 }
 
 /**
+ * Get meal suggestions (restaurant / Imbiss / Pub), optionally narrowed by a
+ * cuisine keyword (e.g. "Pizza", "Mediterran"). These are independent
+ * suggestions, not an itinerary — no distance filtering, no ordering.
+ */
+export async function getMealPlaces(lat, lng, apiKey, cuisine) {
+  const types = ['restaurant', 'meal_takeaway', 'bar'];
+
+  let places = await searchByTypes(lat, lng, 5000, types, apiKey, cuisine);
+  if (cuisine && places.length === 0) {
+    // Cuisine keyword found nothing nearby -> fall back to unfiltered results
+    places = await searchByTypes(lat, lng, 5000, types, apiKey);
+  }
+
+  places.sort((a, b) =>
+    (b.rating || 0) * Math.log(b.userRatingsTotal + 1) -
+    (a.rating || 0) * Math.log(a.userRatingsTotal + 1)
+  );
+
+  const top = places.slice(0, 6); // slice BEFORE enrich to cap Details API cost
+  return enrichPlacesWithDetails(top, apiKey);
+}
+
+/**
  * Get place details including description
  */
 export async function getPlaceDetails(placeId, apiKey) {
+  const key = `details:${placeId}`;
+  return withCache(key, TTL.PLACE_DETAILS, () => fetchPlaceDetails(placeId, apiKey));
+}
+
+async function fetchPlaceDetails(placeId, apiKey) {
   try {
     const response = await axios.get(`${GOOGLE_PLACES_API}/details/json`, {
       params: {
@@ -146,16 +189,16 @@ export async function getPlaceDetails(placeId, apiKey) {
 
     if (response.data.status === 'OK') {
       const details = response.data.result;
-      
+
       // Get editorial summary or first review as description
       let description = details.editorial_summary?.overview || '';
-      
+
       // If no editorial summary, use a relevant review snippet
       if (!description && details.reviews && details.reviews.length > 0) {
         const topReview = details.reviews
           .filter(r => r.rating >= 4 && r.text && r.text.length > 50)
           .sort((a, b) => b.rating - a.rating)[0];
-        
+
         if (topReview) {
           description = topReview.text.substring(0, 200);
           if (topReview.text.length > 200) description += '...';

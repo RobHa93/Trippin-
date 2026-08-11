@@ -44,6 +44,18 @@ export function getPlanStyleLabel(style) {
 /**
  * Get day type label
  */
-export function getDayTypeLabel(type) {
+export function getDayTypeLabel(type, mealType) {
+  if (type === 'meal') {
+    return { breakfast: 'Frühstück', lunch: 'Mittagessen', dinner: 'Abendessen' }[mealType] || 'Essensvorschläge';
+  }
   return type === 'city' ? 'Stadttag' : 'Ausflugstag';
+}
+
+/**
+ * Build a Google Places photo URL from a photo reference
+ */
+export function getPhotoUrl(photoRef, maxwidth = 400) {
+  if (!photoRef) return null;
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}&photo_reference=${photoRef}&key=${apiKey}`;
 }

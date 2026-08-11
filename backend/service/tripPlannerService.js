@@ -1,10 +1,16 @@
-import { geocodeLocation, getCityPlaces, getExcursionPlaces } from './googlePlacesService.js';
+import { geocodeLocation, getCityPlaces, getExcursionPlaces, getMealPlaces } from './googlePlacesService.js';
 import { calculateRoute, getTravelTime } from './googleDirectionsService.js';
+
+const MEAL_MODES = ['breakfast', 'lunch', 'dinner'];
 
 /**
  * Main trip generation logic
  */
 export async function generateTrip(tripRequest, apiKey) {
+  if (MEAL_MODES.includes(tripRequest.mode)) {
+    return generateMealTrip(tripRequest, apiKey);
+  }
+
   const { location, totalDays, planStyle, cityDays, excursionDays } = tripRequest;
 
   // Validate input
@@ -103,6 +109,34 @@ export async function generateTrip(tripRequest, apiKey) {
       excursionDays
     },
     days: generatedDays
+  };
+}
+
+/**
+ * Generate a single-day "meal mode" result: independent restaurant/Imbiss/Pub
+ * suggestions near a location, with no route/order between them.
+ */
+async function generateMealTrip(tripRequest, apiKey) {
+  const { location, mode, cuisine } = tripRequest;
+  const centerLocation = await geocodeLocation(location, apiKey);
+  const stops = await getMealPlaces(centerLocation.lat, centerLocation.lng, apiKey, cuisine);
+
+  return {
+    meta: {
+      location: centerLocation.formattedAddress,
+      centerLat: centerLocation.lat,
+      centerLng: centerLocation.lng,
+      mode,
+      cuisine: cuisine || null
+    },
+    days: [{
+      dayNumber: 1,
+      dayType: 'meal',
+      mealType: mode,
+      stopsCount: stops.length,
+      stops,
+      route: null
+    }]
   };
 }
 

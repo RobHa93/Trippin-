@@ -4,7 +4,109 @@ import { useAuth } from '../context/AuthContext';
 import { deleteTrip, getUserTrips } from '../services/tripsService';
 import UserMenu from '../components/userMenu';
 import LoadingSpinner from '../components/loadingSpinner';
-import { getPlanStyleLabel } from '../utils/formatUtils';
+import { getPlanStyleLabel, getDayTypeLabel, getPhotoUrl } from '../utils/formatUtils';
+
+const MODE_STYLE = {
+  activity: { gradient: 'from-orange-300 via-pink-400 to-purple-400', emoji: '🏝️' },
+  meal: { gradient: 'from-rose-300 via-amber-300 to-orange-300', emoji: '🍽️' }
+};
+
+function getCoverPhotoUrl(trip) {
+  const stopWithPhoto = trip?.days
+    ?.flatMap((d) => d.stops || [])
+    .find((s) => s.photos?.[0]?.reference);
+  return stopWithPhoto ? getPhotoUrl(stopWithPhoto.photos[0].reference, 500) : null;
+}
+
+function TripCard({ item, index, onOpen, onDelete, isDeleting }) {
+  const trip = item.trip;
+  const firstDay = trip?.days?.[0];
+  const isMeal = firstDay?.dayType === 'meal';
+  const style = isMeal ? MODE_STYLE.meal : MODE_STYLE.activity;
+  const coverUrl = getCoverPhotoUrl(trip);
+
+  const formatDate = (createdAt) => {
+    if (!createdAt?.toDate) return null;
+    return createdAt.toDate().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+  const savedDate = formatDate(item.createdAt);
+
+  const fields = isMeal
+    ? [
+        { label: 'Anlass', value: getDayTypeLabel('meal', firstDay.mealType) },
+        { label: 'Vorschläge', value: `${firstDay.stops?.length || 0}` }
+      ]
+    : [
+        { label: 'Reise', value: `${trip?.meta?.totalDays || '–'} Tage` },
+        { label: 'Stil', value: getPlanStyleLabel(trip?.meta?.planStyle) }
+      ];
+
+  return (
+    <div
+      className="relative animate-card-in"
+      style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+    >
+      <button
+        onClick={() => onOpen(item.id)}
+        className="block w-full text-left overflow-hidden bg-white rounded-3xl shadow-xl border border-white/60 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 group"
+      >
+        {/* Cover */}
+        <div className="relative aspect-[4/3] overflow-hidden rounded-t-3xl">
+          {coverUrl ? (
+            <img
+              src={coverUrl}
+              alt=""
+              className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${style.gradient}`}>
+              <span className="text-5xl drop-shadow-lg">{style.emoji}</span>
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute bottom-3 left-4 right-12 flex items-center gap-2 text-white">
+            <span className="text-lg">{style.emoji}</span>
+            <span className="text-lg font-semibold truncate drop-shadow">{trip?.meta?.location}</span>
+          </div>
+        </div>
+
+        {/* Perforation divider */}
+        <div className="relative mx-5">
+          <div className="border-t-2 border-dashed border-gray-200" />
+          <span className="absolute left-0 top-0 w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-50" />
+          <span className="absolute right-0 top-0 w-5 h-5 translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-50" />
+        </div>
+
+        {/* Ticket stub */}
+        <div className="grid grid-cols-2 gap-3 p-5">
+          {fields.map((f) => (
+            <div key={f.label}>
+              <div className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">{f.label}</div>
+              <div className="text-sm font-semibold text-gray-800">{f.value}</div>
+            </div>
+          ))}
+          {savedDate && (
+            <div className="col-span-2 text-[10px] tracking-widest text-gray-300 uppercase">
+              Gespeichert · {savedDate}
+            </div>
+          )}
+        </div>
+      </button>
+
+      {/* Delete */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+        disabled={isDeleting}
+        title="Aus gespeicherten Zielen entfernen"
+        className={`absolute top-3 right-3 w-8 h-8 rounded-full bg-white/85 backdrop-blur-sm shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-white transition ${isDeleting ? 'opacity-50' : ''}`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 export default function SavedTrips() {
   const { user } = useAuth();
@@ -20,8 +122,7 @@ export default function SavedTrips() {
       .catch(() => setError('Gespeicherte Reisen konnten nicht geladen werden'));
   }, [user]);
 
-  const handleDelete = async (e, tripId) => {
-    e.stopPropagation();
+  const handleDelete = async (tripId) => {
     setDeletingId(tripId);
     try {
       await deleteTrip(tripId);
@@ -33,11 +134,6 @@ export default function SavedTrips() {
     }
   };
 
-  const formatDate = (createdAt) => {
-    if (!createdAt?.toDate) return '';
-    return createdAt.toDate().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-orange-100 via-pink-50 to-purple-100">
       <div className="absolute inset-0 bg-gradient-to-tr from-yellow-200/30 via-orange-200/30 to-pink-300/40 animate-pulse" style={{ animationDuration: '8s' }}></div>
@@ -46,13 +142,13 @@ export default function SavedTrips() {
 
       <UserMenu />
 
-      <div className="container relative px-4 py-8 mx-auto max-w-3xl">
+      <div className="container relative px-4 py-8 mx-auto max-w-6xl">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-transparent bg-gradient-to-r from-orange-600 via-pink-600 to-purple-600 bg-clip-text">
               ❤️ Gespeicherte Ziele
             </h1>
-            <p className="mt-1 text-sm text-gray-500">Deine gespeicherten Reisepläne</p>
+            <p className="mt-1 text-sm text-gray-500">Deine gespeicherten Reisepläne und Essenstipps</p>
           </div>
           <button
             onClick={() => navigate('/')}
@@ -75,40 +171,29 @@ export default function SavedTrips() {
         )}
 
         {trips?.length === 0 && (
-          <div className="p-10 text-center border shadow-xl backdrop-blur-xl bg-white/80 rounded-3xl border-white/50">
-            <div className="mb-3 text-4xl">🤍</div>
-            <p className="text-gray-600">Noch keine Reise gespeichert.</p>
-            <p className="mt-1 text-sm text-gray-400">Speichere eine Reise über das Herz-Icon auf der Ergebnisseite.</p>
+          <div className="max-w-md p-10 mx-auto text-center border border-dashed shadow-xl bg-white/70 backdrop-blur-xl rounded-3xl border-gray-300">
+            <div className="mb-3 text-4xl">✈️</div>
+            <p className="font-semibold text-gray-700">Noch kein Ziel gestempelt.</p>
+            <p className="mt-1 text-sm text-gray-400">Speichere eine Reise oder Essenstipps über das Icon auf der Ergebnisseite.</p>
+            <button
+              onClick={() => navigate('/')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 mt-5 font-semibold text-white transition rounded-2xl bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 hover:shadow-lg"
+            >
+              Reise planen 🚀
+            </button>
           </div>
         )}
 
-        <div className="space-y-3">
-          {trips?.map((item) => (
-            <button
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {trips?.map((item, index) => (
+            <TripCard
               key={item.id}
-              onClick={() => navigate(`/trips/${item.id}`)}
-              className="flex items-center justify-between w-full p-5 text-left transition border shadow-xl backdrop-blur-xl bg-white/80 rounded-3xl border-white/50 hover:shadow-2xl hover:scale-[1.01]"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🏝️</span>
-                  <span className="text-lg font-semibold text-gray-900">{item.trip?.meta?.location}</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {item.trip?.meta?.totalDays} Tage · {getPlanStyleLabel(item.trip?.meta?.planStyle)}
-                  {formatDate(item.createdAt) && ` · gespeichert am ${formatDate(item.createdAt)}`}
-                </p>
-              </div>
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => handleDelete(e, item.id)}
-                title="Aus gespeicherten Zielen entfernen"
-                className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-lg hover:bg-pink-50 transition ${deletingId === item.id ? 'opacity-50' : ''}`}
-              >
-                ❤️
-              </span>
-            </button>
+              item={item}
+              index={index}
+              onOpen={(id) => navigate(`/trips/${id}`)}
+              onDelete={handleDelete}
+              isDeleting={deletingId === item.id}
+            />
           ))}
         </div>
       </div>
