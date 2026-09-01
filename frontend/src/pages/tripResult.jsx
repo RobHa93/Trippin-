@@ -7,6 +7,7 @@ import MapView from '../components/mapView';
 import WeatherWidget from '../components/weatherWidget';
 import UserMenu from '../components/userMenu';
 import LoadingSpinner from '../components/loadingSpinner';
+import HeartBurst from '../components/heartBurst';
 import { useAuth } from '../context/AuthContext';
 import { saveTrip, deleteTrip, getTrip } from '../services/tripsService';
 import { getDayTypeLabel } from '../utils/formatUtils';
@@ -28,6 +29,8 @@ export default function TripResult() {
   const [selectedDayNumber, setSelectedDayNumber] = useState(1);
   const [focusedStopIndex, setFocusedStopIndex] = useState(null);
   const [replacingStop, setReplacingStop] = useState(null); // { dayNumber, stopIndex }
+  const [justSaved, setJustSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (!initialTrip && routeTripId) {
@@ -49,6 +52,7 @@ export default function TripResult() {
   const handleToggleSave = async () => {
     if (!user || saving) return;
     setSaving(true);
+    setSaveError('');
     try {
       if (savedTripId) {
         await deleteTrip(savedTripId);
@@ -57,10 +61,17 @@ export default function TripResult() {
       } else {
         const id = await saveTrip(user.uid, trip);
         setSavedTripId(id);
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 750);
         navigate(`/trips/${id}`, { replace: true, state: { trip } });
       }
     } catch (err) {
       console.error('Save trip failed', err);
+      setSaveError(
+        err.code === 'permission-denied'
+          ? 'Speichern blockiert: Firestore-Regeln erlauben aktuell keinen Schreibzugriff.'
+          : `Reise konnte nicht gespeichert werden (${err.code || err.message}).`
+      );
     } finally {
       setSaving(false);
     }
@@ -101,14 +112,33 @@ export default function TripResult() {
         excludeIds
       });
       if (res.data.success && res.data.stop) {
+        const newStops = [...day.stops];
+        newStops[stopIndex] = res.data.stop;
+
+        let route = null;
+        let finalStops = newStops;
+        if (newStops.length >= 2) {
+          try {
+            const routeRes = await axios.post('/api/directions/route', { stops: newStops });
+            if (routeRes.data.success) {
+              route = routeRes.data.route;
+              if (route.waypointOrder && route.waypointOrder.length > 0) {
+                const reordered = [newStops[0]];
+                route.waypointOrder.forEach(i => reordered.push(newStops[i + 1]));
+                reordered.push(newStops[newStops.length - 1]);
+                finalStops = reordered;
+              }
+            }
+          } catch (routeErr) {
+            console.error('Route recalculation failed', routeErr);
+          }
+        }
+
         setTrip(prev => ({
           ...prev,
           days: prev.days.map(d => {
             if (d.dayNumber !== dayNumber) return d;
-            const newStops = [...d.stops];
-            newStops[stopIndex] = res.data.stop;
-            // Clear stale route so MapView redraws with correct stop positions
-            return { ...d, stops: newStops, route: null };
+            return { ...d, stops: finalStops, route };
           })
         }));
       }
@@ -120,14 +150,14 @@ export default function TripResult() {
   };
 
   return (
-    <div className="min-h-screen absolute inset-0 overflow-x-hidden bg-gradient-to-br from-slate-100 via-white to-slate-200">
+    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-slate-100 via-white to-slate-200">
       
       {/* Header */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 truncate">
                 {trip.meta.location}
               </h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -136,29 +166,35 @@ export default function TripResult() {
                   : `${trip.meta.totalDays} Tage · ${trip.meta.cityDays} Stadttage · ${trip.meta.excursionDays} Ausflugstage`}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleToggleSave}
-                disabled={saving}
-                title={savedTripId ? 'Reise nicht mehr speichern' : 'Ganze Reise speichern'}
-                className={`w-10 h-10 rounded-lg border text-lg flex items-center justify-center transition-all duration-300 shadow-sm hover:shadow disabled:opacity-50 ${
-                  savedTripId
-                    ? 'bg-pink-50 border-pink-200 text-pink-600'
-                    : 'bg-white border-gray-200 text-gray-400 hover:text-pink-500'
-                }`}
-              >
-                {savedTripId ? '❤️' : '🤍'}
-              </button>
+            <div className="flex items-center justify-end gap-3">
+              <div className="relative">
+                <button
+                  onClick={handleToggleSave}
+                  disabled={saving}
+                  title={savedTripId ? 'Reise nicht mehr speichern' : 'Ganze Reise speichern'}
+                  className={`w-10 h-10 rounded-lg border text-lg flex items-center justify-center transition-all duration-300 shadow-sm hover:shadow disabled:opacity-50 ${
+                    savedTripId
+                      ? 'bg-pink-50 border-pink-200 text-pink-600'
+                      : 'bg-white border-gray-200 text-gray-400 hover:text-pink-500'
+                  }`}
+                >
+                  {savedTripId ? '❤️' : '🤍'}
+                </button>
+                <HeartBurst active={justSaved} />
+              </div>
               <button
                 onClick={() => navigate('/')}
-                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium
-                           hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow"
+                className="px-3 sm:px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium
+                           hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow whitespace-nowrap"
               >
-                ← Neue Planung
+                ← <span className="hidden sm:inline">Neue Planung</span><span className="sm:hidden">Neu</span>
               </button>
-              <UserMenu fixed={false} />
+              <UserMenu />
             </div>
           </div>
+          {saveError && (
+            <p className="mt-2 text-sm font-medium text-red-600">{saveError}</p>
+          )}
         </div>
       </header>
 
@@ -196,7 +232,7 @@ export default function TripResult() {
                                 transition-all duration-300 shadow-sm ${
                       selectedDayNumber === day.dayNumber
                         ? 'bg-gray-900 text-white shadow-md'
-                        : 'bg-gray-900 border border-gray-200 text-gray-600 hover:bg-gray-100'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Tag {day.dayNumber}
@@ -234,7 +270,7 @@ export default function TripResult() {
             <div className="sticky top-24">
               <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-lg 
                               hover:shadow-xl transition-all duration-300">
-                <div className="h-[550px] lg:h-[600px]">
+                <div className="h-[320px] sm:h-[420px] lg:h-[600px]">
                   <MapView day={selectedDay} center={mapCenter} focusedStopIndex={focusedStopIndex} />
                 </div>
               </div>

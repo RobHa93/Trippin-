@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import tripRoutes from './routes/tripRoutes.js';
 import placesRoutes from './routes/placesRoutes.js';
 import directionsRoutes from './routes/directionsRoutes.js';
+import { runConnectionTests } from './test/connectionTests.js';
 
 // Load environment variables
 dotenv.config();
@@ -57,8 +58,8 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Trippin' Backend running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
-  
-  if (!process.env.GOOGLE_MAPS_API_KEY) {
-    console.warn('⚠️  Warning: GOOGLE_MAPS_API_KEY not set in .env');
-  }
+
+  // Best-effort sanity check for external dependencies (Google Maps, Firebase) —
+  // never blocks or crashes the server, just reports problems early.
+  runConnectionTests().catch((err) => console.error('Connection tests failed to run:', err.message));
 });

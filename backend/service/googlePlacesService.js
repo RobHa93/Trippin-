@@ -145,13 +145,22 @@ export async function getExcursionPlaces(lat, lng, count, apiKey) {
   return enrichPlacesWithDetails(places, apiKey);
 }
 
+// Place types per meal time, so "Frühstück" returns bakeries/cafés instead
+// of the same restaurants used for lunch/dinner.
+const MEAL_TYPES = {
+  breakfast: ['bakery', 'cafe'],
+  lunch: ['restaurant', 'meal_takeaway'],
+  dinner: ['restaurant', 'bar'],
+};
+
 /**
- * Get meal suggestions (restaurant / Imbiss / Pub), optionally narrowed by a
- * cuisine keyword (e.g. "Pizza", "Mediterran"). These are independent
- * suggestions, not an itinerary — no distance filtering, no ordering.
+ * Get meal suggestions (restaurant / Imbiss / Pub / bakery / cafe depending on
+ * `mode`), optionally narrowed by a cuisine keyword (e.g. "Pizza", "Mediterran").
+ * These are independent suggestions, not an itinerary — no distance filtering,
+ * no ordering.
  */
-export async function getMealPlaces(lat, lng, apiKey, cuisine) {
-  const types = ['restaurant', 'meal_takeaway', 'bar'];
+export async function getMealPlaces(lat, lng, apiKey, cuisine, mode) {
+  const types = MEAL_TYPES[mode] || ['restaurant', 'meal_takeaway', 'bar'];
 
   let places = await searchByTypes(lat, lng, 5000, types, apiKey, cuisine);
   if (cuisine && places.length === 0) {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function UserMenu({ fixed = true }) {
+export default function UserMenu() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -27,7 +27,7 @@ export default function UserMenu({ fixed = true }) {
   const initial = user?.email?.[0]?.toUpperCase() || '?';
 
   return (
-    <div ref={menuRef} className={`relative ${fixed ? 'fixed top-4 right-4 z-50' : ''}`}>
+    <div ref={menuRef} className="relative z-50">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center justify-center w-10 h-10 font-semibold text-white transition rounded-full shadow-lg bg-gradient-to-br from-orange-500 via-pink-500 to-purple-600 hover:shadow-xl"

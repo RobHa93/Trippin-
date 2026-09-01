@@ -11,7 +11,7 @@ export async function generateTrip(tripRequest, apiKey) {
     return generateMealTrip(tripRequest, apiKey);
   }
 
-  const { location, totalDays, planStyle, cityDays, excursionDays } = tripRequest;
+  const { location, totalDays, planStyle, cityDays, excursionDays, startLocation } = tripRequest;
 
   // Validate input
   if (cityDays + excursionDays !== totalDays) {
@@ -64,9 +64,28 @@ export async function generateTrip(tripRequest, apiKey) {
     // Optimize stop order using greedy nearest-neighbor
     const optimizedStops = optimizeStopOrder(stops);
 
-    // Calculate route for the day
+    // Only the very first day can start from the user's live location —
+    // it's where the trip actually begins, unlike later days.
+    const useStartLocation = day.dayNumber === 1
+      && typeof startLocation?.lat === 'number'
+      && typeof startLocation?.lng === 'number'
+      && optimizedStops.length >= 1;
+
     let route = null;
-    if (optimizedStops.length >= 2) {
+    let finalStops = optimizedStops;
+
+    if (useStartLocation) {
+      // Prepend the live location as the route's origin only — it's not a
+      // visitable place, so it never appears in `stops`.
+      const routeStops = [{ lat: startLocation.lat, lng: startLocation.lng }, ...optimizedStops];
+      route = await calculateRoute(routeStops, apiKey);
+
+      if (route.waypointOrder && route.waypointOrder.length > 0) {
+        const waypoints = optimizedStops.slice(0, -1);
+        finalStops = route.waypointOrder.map(index => waypoints[index]);
+        finalStops.push(optimizedStops[optimizedStops.length - 1]);
+      }
+    } else if (optimizedStops.length >= 2) {
       route = await calculateRoute(optimizedStops, apiKey);
 
       // Reorder stops based on optimized waypoint order
@@ -76,26 +95,15 @@ export async function generateTrip(tripRequest, apiKey) {
           reorderedStops.push(optimizedStops[index + 1]); // +1 because waypoints exclude origin
         });
         reorderedStops.push(optimizedStops[optimizedStops.length - 1]); // Keep last stop
-
-        generatedDays.push({
-          ...day,
-          stops: reorderedStops,
-          route
-        });
-      } else {
-        generatedDays.push({
-          ...day,
-          stops: optimizedStops,
-          route
-        });
+        finalStops = reorderedStops;
       }
-    } else {
-      generatedDays.push({
-        ...day,
-        stops: optimizedStops,
-        route: null
-      });
     }
+
+    generatedDays.push({
+      ...day,
+      stops: finalStops,
+      route
+    });
   }
 
   return {
@@ -119,7 +127,7 @@ export async function generateTrip(tripRequest, apiKey) {
 async function generateMealTrip(tripRequest, apiKey) {
   const { location, mode, cuisine } = tripRequest;
   const centerLocation = await geocodeLocation(location, apiKey);
-  const stops = await getMealPlaces(centerLocation.lat, centerLocation.lng, apiKey, cuisine);
+  const stops = await getMealPlaces(centerLocation.lat, centerLocation.lng, apiKey, cuisine, mode);
 
   return {
     meta: {

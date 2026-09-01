@@ -13,7 +13,8 @@ export default function Home() {
     totalDays: 3,
     planStyle: 'relaxed',
     cityDays: 3,
-    excursionDays: 0
+    excursionDays: 0,
+    useCurrentLocation: false
   });
 
   const MODE_OPTIONS = [
@@ -33,8 +34,20 @@ export default function Home() {
   };
 
   const isMealMode = formData.mode !== 'activity';
+  const showCuisinePicker = formData.mode === 'lunch' || formData.mode === 'dinner';
 
-  const handleSubmit = (e) => {
+  // Resolves to {lat, lng} or null — never rejects, so a denied/unsupported/
+  // timed-out request just falls back to the normal (non-GPS) trip.
+  const getCurrentLocation = (timeout = 8000) => new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout, enableHighAccuracy: true }
+    );
+  });
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.location.trim()) {
       setError('Bitte gib einen Ort ein');
@@ -53,7 +66,9 @@ export default function Home() {
       setError('Stadttage + Ausflugstage muss Gesamttage entsprechen');
       return;
     }
-    navigate('/planner', { state: { tripRequest: formData } });
+
+    const startLocation = formData.useCurrentLocation ? await getCurrentLocation() : undefined;
+    navigate('/planner', { state: { tripRequest: { ...formData, startLocation } } });
   };
 
   // Slider gradient helpers (CSS variable for track fill)
@@ -66,7 +81,7 @@ export default function Home() {
   const excursionTrack = `linear-gradient(to right, #22c55e ${excursionPct}%, #e5e7eb ${excursionPct}%)`;
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-orange-100 via-pink-50 to-purple-100">
+    <div className="relative flex flex-col h-screen overflow-hidden bg-gradient-to-br from-orange-100 via-pink-50 to-purple-100">
       {/* Animated Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-tr from-yellow-200/30 via-orange-200/30 to-pink-300/40 animate-pulse" style={{ animationDuration: '8s' }}></div>
 
@@ -74,40 +89,41 @@ export default function Home() {
       <div className="absolute w-64 h-64 rounded-full top-20 right-20 bg-yellow-300/20 blur-3xl"></div>
       <div className="absolute rounded-full bottom-20 left-20 w-96 h-96 bg-orange-400/20 blur-3xl"></div>
 
-      <UserMenu />
+      <div className="container relative flex flex-col justify-center flex-1 min-h-0 px-4 py-4 mx-auto">
 
-      <div className="container relative px-4 py-8 mx-auto">
+        <div className="flex justify-end mb-1">
+          <UserMenu />
+        </div>
 
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className="mb-2 text-center">
           <h1 className="flex items-center justify-center gap-3 mb-1 text-6xl font-bold">
             <span className="text-5xl drop-shadow-lg">🏝️</span>
             <span className="text-4xl text-transparent bg-gradient-to-r from-orange-600 via-pink-600 to-purple-600 bg-clip-text">
               Trippin'
             </span>
           </h1>
-          <p className="mb-20 text-sm text-gray-500">Dein Reiseplaner für Kurztrips</p>
+          <p className="text-sm text-gray-500 mb-10">Dein Reiseplaner für Kurztrips</p>
         </div>
 
         {/* Content Grid: image left + form right */}
-        <div className="grid items-start max-w-5xl grid-cols-1 gap-8 mx-auto lg:grid-cols-5">
+        <div className="grid flex-1 max-w-5xl grid-cols-1 gap-6 mx-auto overflow-hidden lg:grid-cols-5 min-h-0">
 
           {/* Left – Vacation Image (desktop only) */}
-          <div className="flex-col hidden lg:flex lg:col-span-2">
-            <div className="w-full mt-20 overflow-hidden" style={{ minHeight: '250px' }}>
+          <div className="flex-col items-start mr-10 justify-center hidden h-full lg:flex lg:col-span-2">
+            <div className="w-full overflow-hidden max-w-sm aspect-[8/5] rounded-3xl">
               <img
                 src={vacationImg}
                 alt="Vacation"
-                className="object-fill w-full h-full"
-                style={{ minHeight: '250px' }}
+                className="object-contain w-full h-full"
               />
             </div>
           </div>
 
           {/* Right – Form (60% = 3 cols) */}
-          <div className="col-span-1 lg:col-span-3">
-            <div className="p-6 border shadow-2xl backdrop-blur-xl bg-white/80 rounded-3xl border-white/50">
-              <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="col-span-1 h-full max-h-full overflow-y-auto lg:col-span-3">
+            <div className="p-5 border shadow-2xl backdrop-blur-xl bg-white/80 rounded-3xl border-white/50">
+              <form onSubmit={handleSubmit} className="space-y-3">
 
                 {/* Location */}
                 <div>
@@ -125,16 +141,13 @@ export default function Home() {
 
                 {/* Mode Selector */}
                 <div>
-                  <label className="block mb-2 text-sm font-semibold text-gray-800">
-                    Was möchtest du?
-                  </label>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {MODE_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
                         onClick={() => handleChange('mode', opt.value)}
-                        className={`relative p-3 rounded-2xl transition-all duration-200 text-center ${
+                        className={`relative p-2.5 rounded-2xl transition-all duration-200 text-center ${
                           formData.mode === opt.value
                             ? 'bg-gradient-to-br from-orange-400 to-pink-500 text-white shadow-lg scale-105'
                             : 'bg-white text-gray-700 shadow-sm hover:shadow-md border border-gray-200'
@@ -147,9 +160,9 @@ export default function Home() {
                   </div>
                 </div>
 
-                {isMealMode && (
-                  <div className="p-4 border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
-                    <label className="block mb-3 text-sm font-semibold text-gray-800">
+                {showCuisinePicker && (
+                  <div className="p-3 border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                    <label className="block mb-2 text-sm font-semibold text-gray-800">
                       Küchenrichtung (optional)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -206,14 +219,14 @@ export default function Home() {
 
                 {/* Plan Style */}
                 <div>
-                  <label className="block mb-2 text-sm font-semibold text-gray-800">
+                  <label className="block mb-1.5 text-sm font-semibold text-gray-800">
                     Planungsstil
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => handleChange('planStyle', 'relaxed')}
-                      className={`relative p-4 rounded-2xl transition-all duration-200 ${
+                      className={`relative p-3 rounded-2xl transition-all duration-200 ${
                         formData.planStyle === 'relaxed'
                           ? 'bg-gradient-to-br from-orange-400 to-pink-500 text-white shadow-lg scale-105'
                           : 'bg-white text-gray-700 shadow-sm hover:shadow-md border border-gray-200'
@@ -235,7 +248,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => handleChange('planStyle', 'packed')}
-                      className={`relative p-4 rounded-2xl transition-all duration-200 ${
+                      className={`relative p-3 rounded-2xl transition-all duration-200 ${
                         formData.planStyle === 'packed'
                           ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg scale-105'
                           : 'bg-white text-gray-700 shadow-sm hover:shadow-md border border-gray-200'
@@ -258,8 +271,8 @@ export default function Home() {
                 </div>
 
                 {/* City vs Excursion Days */}
-                <div className="p-4 border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
-                  <label className="block mb-3 text-sm font-semibold text-gray-800">
+                <div className="p-3 border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                  <label className="block mb-2 text-sm font-semibold text-gray-800">
                     Tagesaufteilung
                   </label>
 
@@ -315,6 +328,19 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+                {/* Start from current GPS location (mobile) */}
+                <label className="flex items-center gap-2 p-2.5 border border-gray-200 rounded-2xl bg-white/60 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.useCurrentLocation}
+                    onChange={(e) => handleChange('useCurrentLocation', e.target.checked)}
+                    className="w-4 h-4 accent-orange-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    📍 Route ab meinem aktuellen Standort starten <span className="font-normal text-gray-400">(am Handy)</span>
+                  </span>
+                </label>
                 </>
                 )}
 
@@ -336,11 +362,6 @@ export default function Home() {
                   </span>
                 </button>
               </form>
-            </div>
-
-            {/* Info */}
-            <div className="mt-4 text-center">
-
             </div>
           </div>
 

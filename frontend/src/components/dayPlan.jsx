@@ -38,7 +38,7 @@ export default function DayPlan({ day, onFocusStop, onReplaceStop, replacingStop
   return (
     <div className="rounded-lg p-6">
       <div className="mb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-2xl font-bold text-gray-900">
             {isMealDay ? getDayTypeLabel(day.dayType, day.mealType) : `Tag ${day.dayNumber}`}
           </h2>
@@ -48,13 +48,14 @@ export default function DayPlan({ day, onFocusStop, onReplaceStop, replacingStop
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
                 title="Route in Google Maps öffnen (auch auf dem Handy nutzbar)"
               >
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                 </svg>
-                Route in Maps exportieren
+                <span className="hidden sm:inline">Route in Maps exportieren</span>
+                <span className="sm:hidden">Maps</span>
               </a>
             )}
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${

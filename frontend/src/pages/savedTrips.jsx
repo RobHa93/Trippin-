@@ -119,7 +119,14 @@ export default function SavedTrips() {
     if (!user) return;
     getUserTrips(user.uid)
       .then(setTrips)
-      .catch(() => setError('Gespeicherte Reisen konnten nicht geladen werden'));
+      .catch((err) => {
+        console.error('Load trips failed', err);
+        setError(
+          err.code === 'failed-precondition'
+            ? 'Firestore braucht noch einen Index für diese Abfrage — Link dazu steht in der Browser-Konsole (F12), einfach anklicken.'
+            : `Gespeicherte Reisen konnten nicht geladen werden (${err.code || err.message}).`
+        );
+      });
   }, [user]);
 
   const handleDelete = async (tripId) => {
@@ -140,22 +147,30 @@ export default function SavedTrips() {
       <div className="absolute w-64 h-64 rounded-full top-20 right-20 bg-yellow-300/20 blur-3xl"></div>
       <div className="absolute rounded-full bottom-20 left-20 w-96 h-96 bg-orange-400/20 blur-3xl"></div>
 
-      <UserMenu />
-
       <div className="container relative px-4 py-8 mx-auto max-w-6xl">
-        <div className="flex items-center justify-between mb-8">
-          <div>
+        <div className="flex flex-col gap-3 mb-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-transparent bg-gradient-to-r from-orange-600 via-pink-600 to-purple-600 bg-clip-text">
               ❤️ Gespeicherte Ziele
             </h1>
             <p className="mt-1 text-sm text-gray-500">Deine gespeicherten Reisepläne und Essenstipps</p>
           </div>
-          <button
-            onClick={() => navigate('/')}
-            className="px-4 py-2 text-sm font-medium text-gray-700 transition bg-white border border-gray-200 shadow-sm rounded-2xl hover:shadow-md"
-          >
-            ← Neue Planung
-          </button>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              title="Zur vorherigen Seite zurück"
+              className="px-4 py-2 text-sm font-medium text-gray-700 transition bg-white border border-gray-200 shadow-sm rounded-2xl hover:shadow-md whitespace-nowrap"
+            >
+              ← Zurück
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 transition bg-white border border-gray-200 shadow-sm rounded-2xl hover:shadow-md whitespace-nowrap"
+            >
+              Neue Planung
+            </button>
+            <UserMenu />
+          </div>
         </div>
 
         {trips === null && !error && (
