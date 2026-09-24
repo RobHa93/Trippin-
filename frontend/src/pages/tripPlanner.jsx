@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTripPlanner } from '../hooks/useTripPlanner';
 import LoadingSpinner from '../components/loadingSpinner';
@@ -13,24 +13,28 @@ export default function TripPlanner() {
 
   const tripRequest = location.state?.tripRequest;
 
+  const requestedRef = useRef(null);
+  const activeRef = useRef(false);
+
   useEffect(() => {
     if (!tripRequest) {
       navigate('/');
       return;
     }
 
-    // Generate trip on mount
-    const generate = async () => {
-      try {
-        const trip = await generateTrip(tripRequest);
-        navigate('/result', { state: { trip } });
-      } catch (err) {
-        // Error is already set in the hook
-        console.error('Trip generation failed:', err);
-      }
-    };
+    activeRef.current = true;
+    // StrictMode runs effects twice in dev; without this guard every trip
+    // would be generated (and billed) twice.
+    if (requestedRef.current !== tripRequest) {
+      requestedRef.current = tripRequest;
+      generateTrip(tripRequest)
+        .then((trip) => {
+          if (activeRef.current) navigate('/result', { state: { trip } });
+        })
+        .catch(() => {}); // the hook exposes the error for rendering
+    }
 
-    generate();
+    return () => { activeRef.current = false; };
   }, [tripRequest, navigate]);
 
   return (

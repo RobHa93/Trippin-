@@ -1,8 +1,42 @@
 import axios from 'axios';
 import { withCache, TTL } from './cache.js';
+import { AppError } from '../errors.js';
 
 const GOOGLE_PLACES_API = 'https://maps.googleapis.com/maps/api/place';
 const GOOGLE_GEOCODING_API = 'https://maps.googleapis.com/maps/api/geocode';
+
+const PHOTO_REF_PATTERN = /^[A-Za-z0-9_-]{20,1000}$/;
+const PHOTO_WIDTH = { min: 100, max: 800, default: 400 };
+
+/**
+ * Streams a Places photo fetched with the server key, so the browser key
+ * doesn't need access to the Places API.
+ */
+export async function fetchPlacePhoto(photoRef, requestedWidth, apiKey) {
+  if (!PHOTO_REF_PATTERN.test(photoRef || '')) {
+    throw new AppError(400, 'INVALID_INPUT');
+  }
+  const width = Math.min(
+    Math.max(parseInt(requestedWidth, 10) || PHOTO_WIDTH.default, PHOTO_WIDTH.min),
+    PHOTO_WIDTH.max
+  );
+
+  const response = await axios.get(`${GOOGLE_PLACES_API}/photo`, {
+    params: { photo_reference: photoRef, maxwidth: width, key: apiKey },
+    responseType: 'stream',
+    validateStatus: () => true
+  });
+
+  if (response.status !== 200) {
+    response.data.resume(); // discard body
+    // Google answers 400/404 for expired or unknown references
+    throw response.status < 500
+      ? new AppError(404, 'PHOTO_NOT_FOUND')
+      : new AppError(502, 'UPSTREAM_ERROR', `Places photo failed: HTTP ${response.status}`);
+  }
+
+  return { stream: response.data, contentType: response.headers['content-type'] };
+}
 
 function round(coord) {
   return Math.round(coord * 100) / 100; // ~1km precision, enough to bucket repeat requests
@@ -14,29 +48,27 @@ function round(coord) {
 export async function geocodeLocation(location, apiKey) {
   const key = `geocode:${location.trim().toLowerCase()}`;
   return withCache(key, TTL.GEOCODE, async () => {
-    try {
-      const response = await axios.get(`${GOOGLE_GEOCODING_API}/json`, {
-        params: {
-          address: location,
-          key: apiKey
-        }
-      });
-
-      if (response.data.status === 'OK' && response.data.results.length > 0) {
-        const result = response.data.results[0];
-        return {
-          lat: result.geometry.location.lat,
-          lng: result.geometry.location.lng,
-          formattedAddress: result.formatted_address
-        };
+    const response = await axios.get(`${GOOGLE_GEOCODING_API}/json`, {
+      params: {
+        address: location,
+        key: apiKey
       }
+    });
 
-      throw new Error(`Geocoding failed: ${response.data.status}`);
-    } catch (error) {
-      console.error('Geocoding error:', error.message);
-      console.error('Full error:', error.response?.data || error);
-      throw error;
+    const { status, results } = response.data;
+    if (status === 'OK' && results.length > 0) {
+      const result = results[0];
+      return {
+        lat: result.geometry.location.lat,
+        lng: result.geometry.location.lng,
+        formattedAddress: result.formatted_address
+      };
     }
+
+    if (status === 'ZERO_RESULTS') {
+      throw new AppError(404, 'LOCATION_NOT_FOUND');
+    }
+    throw new AppError(502, 'UPSTREAM_ERROR', `Geocoding failed: ${status}`);
   });
 }
 
@@ -44,50 +76,45 @@ export async function geocodeLocation(location, apiKey) {
  * Search for places near a location. Optional `keyword` narrows results
  * (e.g. a cuisine like "Pizza") without needing a separate API call type.
  */
-export async function searchNearbyPlaces(lat, lng, radius, types, apiKey, keyword) {
+async function searchNearbyPlaces(lat, lng, radius, types, apiKey, keyword) {
   const cacheKey = `nearby:${round(lat)},${round(lng)}:${radius}:${[...types].sort().join(',')}:${keyword || ''}`;
   return withCache(cacheKey, TTL.NEARBY_SEARCH, () => fetchNearbyPlaces(lat, lng, radius, types, apiKey, keyword));
 }
 
 async function fetchNearbyPlaces(lat, lng, radius, types, apiKey, keyword) {
-  try {
-    const params = {
-      location: `${lat},${lng}`,
-      radius: radius,
-      type: types.join('|'),
-      key: apiKey
-    };
-    if (keyword) params.keyword = keyword;
+  const params = {
+    location: `${lat},${lng}`,
+    radius: radius,
+    type: types.join('|'),
+    key: apiKey
+  };
+  if (keyword) params.keyword = keyword;
 
-    const response = await axios.get(`${GOOGLE_PLACES_API}/nearbysearch/json`, { params });
+  const response = await axios.get(`${GOOGLE_PLACES_API}/nearbysearch/json`, { params });
+  const { status } = response.data;
 
-    if (response.data.status === 'OK' || response.data.status === 'ZERO_RESULTS') {
-      return response.data.results.map(place => ({
-        id: place.place_id,
-        name: place.name,
-        lat: place.geometry.location.lat,
-        lng: place.geometry.location.lng,
-        types: place.types,
-        rating: place.rating || 0,
-        userRatingsTotal: place.user_ratings_total || 0,
-        vicinity: place.vicinity,
-        businessStatus: place.business_status,
-        openNow: place.opening_hours?.open_now,
-        photos: place.photos?.slice(0, 6).map(photo => ({
-          reference: photo.photo_reference,
-          width: photo.width,
-          height: photo.height
-        })) || [],
-        priceLevel: place.price_level
-      }));
-    }
-
-    throw new Error(`Places search failed: ${response.data.status}`);
-  } catch (error) {
-    console.error('Places search error:', error.message);
-    console.error('Full error:', error.response?.data || error);
-    throw error;
+  if (status !== 'OK' && status !== 'ZERO_RESULTS') {
+    throw new AppError(502, 'UPSTREAM_ERROR', `Places search failed: ${status}`);
   }
+
+  return response.data.results.map(place => ({
+    id: place.place_id,
+    name: place.name,
+    lat: place.geometry.location.lat,
+    lng: place.geometry.location.lng,
+    types: place.types,
+    rating: place.rating || 0,
+    userRatingsTotal: place.user_ratings_total || 0,
+    vicinity: place.vicinity,
+    businessStatus: place.business_status,
+    openNow: place.opening_hours?.open_now,
+    photos: place.photos?.slice(0, 6).map(photo => ({
+      reference: photo.photo_reference,
+      width: photo.width,
+      height: photo.height
+    })) || [],
+    priceLevel: place.price_level
+  }));
 }
 
 /**

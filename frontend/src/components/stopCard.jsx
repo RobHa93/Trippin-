@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { getPhotoUrl } from '../utils/formatUtils';
+import PlacePhoto from './placePhoto';
 
 const MEAL_ICONS = { restaurant: '🍽️', meal_takeaway: '🥡', bar: '🍹' };
 
@@ -59,13 +59,13 @@ export default function StopCard({ stop, index, onExpand, onCollapse, onReplace,
             )}
             {/* Rating and Type */}
             <div className="flex flex-wrap items-center gap-3 mt-2">
-              {stop.rating && (
+              {stop.rating > 0 && (
                 <div className="flex items-center gap-1">
                   <span className="text-yellow-500">★</span>
                   <span className="text-sm font-medium text-gray-700">
                     {stop.rating.toFixed(1)}
                   </span>
-                  {stop.userRatingsTotal && (
+                  {stop.userRatingsTotal > 0 && (
                     <span className="text-xs text-gray-400">
                       ({stop.userRatingsTotal})
                     </span>
@@ -147,9 +147,9 @@ export default function StopCard({ stop, index, onExpand, onCollapse, onReplace,
               <div>
                <div className="grid grid-cols-2 gap-2">
                   {stop.photos.slice(0, 2).map((photo, idx) => (
-                    <img
+                    <PlacePhoto
                       key={idx}
-                      src={getPhotoUrl(photo.reference)}
+                      photoRef={photo.reference}
                       alt={`${stop.name} ${idx + 1}`}
                       className="object-cover w-full h-32 transition-shadow rounded-lg shadow-sm cursor-pointer hover:shadow-md"
                       onClick={() => window.open(`https://www.google.com/maps/place/?q=place_id:${stop.id}`, '_blank')}
@@ -168,7 +168,7 @@ export default function StopCard({ stop, index, onExpand, onCollapse, onReplace,
             
             {/* Additional info */}
             <div className="space-y-1 text-sm text-gray-600">
-              {stop.priceLevel && (
+              {stop.priceLevel > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Preis:</span>
                   <span>{'€'.repeat(stop.priceLevel)}</span>

@@ -1,6 +1,6 @@
 # Trippin' ✈️
 
-Persönliche KI-gestützte Reiseplan-Webapp für automatische mehrtägige Reiseplanung.
+Webapp, die aus Google-Places-Daten automatisch mehrtägige Reisepläne mit Autorouten erstellt.
 
 ## Features
 
@@ -225,15 +225,6 @@ Health check
 2. Google Directions API mit `optimize:true` für finale Route
 3. Modus: `driving` (nur Auto, kein ÖV)
 
-## Optional: KI Integration
-
-Für intelligentere Tagesplanung kann OpenAI API integriert werden:
-
-```javascript
-// backend/service/aiPlannerService.js
-// KI sortiert nur vorhandene Stops, erfindet keine neuen Orte
-```
-
 ## Dependencies
 
 ### Backend
@@ -252,15 +243,6 @@ Für intelligentere Tagesplanung kann OpenAI API integriert werden:
 - tailwindcss
 - vite
 
-## Nächste Schritte
-
-1. ✅ Basic MVP erstellt
-2. 🔄 Google Maps API Key einrichten
-3. 🔄 Backend starten und testen
-4. 🔄 Frontend starten und testen
-5. 📈 Optional: OpenAI Integration für bessere Planung
-6. 🎨 Optional: UI-Verbesserungen (Bilder, Beschreibungen)
-7. 💾 Optional: Save/Export Funktion für Reisepläne
 
 ## 📄 License
 

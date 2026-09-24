@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { api } from '../services/apiClient';
 import DayList from '../components/dayList';
 import DayPlan from '../components/dayPlan';
 import MapView from '../components/mapView';
@@ -86,8 +86,7 @@ export default function TripResult() {
   }
 
   if (!trip) {
-    navigate('/');
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const selectedDay = trip.days.find(d => d.dayNumber === selectedDayNumber);
@@ -105,7 +104,7 @@ export default function TripResult() {
     setReplacingStop({ dayNumber, stopIndex });
     try {
       const excludeIds = getAllUsedIds();
-      const res = await axios.post('/api/trip/replace-stop', {
+      const res = await api.post('/api/trip/replace-stop', {
         lat: trip.meta.centerLat,
         lng: trip.meta.centerLng,
         dayType: day.dayType,
@@ -119,7 +118,7 @@ export default function TripResult() {
         let finalStops = newStops;
         if (newStops.length >= 2) {
           try {
-            const routeRes = await axios.post('/api/directions/route', { stops: newStops });
+            const routeRes = await api.post('/api/directions/route', { stops: newStops });
             if (routeRes.data.success) {
               route = routeRes.data.route;
               if (route.waypointOrder && route.waypointOrder.length > 0) {

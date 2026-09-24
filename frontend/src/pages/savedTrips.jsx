@@ -4,18 +4,19 @@ import { useAuth } from '../context/AuthContext';
 import { deleteTrip, getUserTrips } from '../services/tripsService';
 import UserMenu from '../components/userMenu';
 import LoadingSpinner from '../components/loadingSpinner';
-import { getPlanStyleLabel, getDayTypeLabel, getPhotoUrl } from '../utils/formatUtils';
+import PlacePhoto from '../components/placePhoto';
+import { getPlanStyleLabel, getDayTypeLabel } from '../utils/formatUtils';
 
 const MODE_STYLE = {
   activity: { gradient: 'from-orange-300 via-pink-400 to-purple-400', emoji: '🏝️' },
   meal: { gradient: 'from-rose-300 via-amber-300 to-orange-300', emoji: '🍽️' }
 };
 
-function getCoverPhotoUrl(trip) {
+function getCoverPhotoRef(trip) {
   const stopWithPhoto = trip?.days
     ?.flatMap((d) => d.stops || [])
     .find((s) => s.photos?.[0]?.reference);
-  return stopWithPhoto ? getPhotoUrl(stopWithPhoto.photos[0].reference, 500) : null;
+  return stopWithPhoto?.photos[0].reference ?? null;
 }
 
 function TripCard({ item, index, onOpen, onDelete, isDeleting }) {
@@ -23,7 +24,7 @@ function TripCard({ item, index, onOpen, onDelete, isDeleting }) {
   const firstDay = trip?.days?.[0];
   const isMeal = firstDay?.dayType === 'meal';
   const style = isMeal ? MODE_STYLE.meal : MODE_STYLE.activity;
-  const coverUrl = getCoverPhotoUrl(trip);
+  const coverRef = getCoverPhotoRef(trip);
 
   const formatDate = (createdAt) => {
     if (!createdAt?.toDate) return null;
@@ -52,17 +53,17 @@ function TripCard({ item, index, onOpen, onDelete, isDeleting }) {
       >
         {/* Cover */}
         <div className="relative aspect-[4/3] overflow-hidden rounded-t-3xl">
-          {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt=""
-              className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${style.gradient}`}>
-              <span className="text-5xl drop-shadow-lg">{style.emoji}</span>
-            </div>
-          )}
+          <PlacePhoto
+            photoRef={coverRef}
+            width={500}
+            alt=""
+            className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+            fallback={
+              <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${style.gradient}`}>
+                <span className="text-5xl drop-shadow-lg">{style.emoji}</span>
+              </div>
+            }
+          />
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-3 left-4 right-12 flex items-center gap-2 text-white">
             <span className="text-lg">{style.emoji}</span>

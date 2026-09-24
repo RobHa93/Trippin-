@@ -1,34 +1,25 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import helmet from 'helmet';
+import { config } from './config.js';
+import { AppError, errorHandler } from './errors.js';
+import { requireAuth } from './middleware/requireAuth.js';
+import { apiLimiter, photoLimiter } from './middleware/rateLimits.js';
 import tripRoutes from './routes/tripRoutes.js';
 import placesRoutes from './routes/placesRoutes.js';
 import directionsRoutes from './routes/directionsRoutes.js';
 import { runConnectionTests } from './test/connectionTests.js';
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Middleware – allow the frontend origin (set FRONTEND_URL in Render env vars)
-const allowedOrigins = process.env.FRONTEND_URL
-  ? [process.env.FRONTEND_URL, 'http://localhost:5173']
-  : true; // allow all origins if not configured
-app.use(cors({ origin: allowedOrigins }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Railway/Render terminate TLS in a proxy in front of the app; needed for a correct req.ip.
+app.set('trust proxy', 1);
 
-// Static files
-app.use(express.static('public'));
+app.use(helmet());
+app.use(cors({ origin: config.allowedOrigins }));
+// Replace-stop/route requests carry full stop objects; trip requests are tiny.
+app.use(express.json({ limit: '50kb' }));
 
-// API Routes
-app.use('/api/trip', tripRoutes);
-app.use('/api/places', placesRoutes);
-app.use('/api/directions', directionsRoutes);
-
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -37,27 +28,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: err.message
-  });
-});
+app.use('/api', requireAuth);
+app.use('/api/trip', apiLimiter, tripRoutes);
+app.use('/api/directions', apiLimiter, directionsRoutes);
+app.use('/api/places', photoLimiter, placesRoutes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    path: req.path
-  });
-});
+app.use((req, res, next) => next(new AppError(404, 'NOT_FOUND')));
+app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Trippin' Backend running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+app.listen(config.port, () => {
+  console.log(`Trippin' backend running on port ${config.port}`);
+  console.log(`Allowed origins: ${config.allowedOrigins.join(', ') || '(none)'}`);
 
   // Best-effort sanity check for external dependencies (Google Maps, Firebase) —
   // never blocks or crashes the server, just reports problems early.

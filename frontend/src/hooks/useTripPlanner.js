@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { api, getApiErrorMessage } from '../services/apiClient';
 
 /**
  * Custom hook for trip planning
@@ -15,16 +15,11 @@ export function useTripPlanner() {
     setTrip(null);
 
     try {
-      const response = await axios.post('/api/trip/generate', tripRequest);
-      
-      if (response.data.success) {
-        setTrip(response.data.trip);
-        return response.data.trip;
-      } else {
-        throw new Error('Trip generation failed');
-      }
+      const response = await api.post('/api/trip/generate', tripRequest);
+      setTrip(response.data.trip);
+      return response.data.trip;
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to generate trip';
+      const errorMessage = getApiErrorMessage(err);
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {

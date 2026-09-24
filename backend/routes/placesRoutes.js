@@ -1,55 +1,19 @@
 import express from 'express';
-import { searchNearbyPlaces, geocodeLocation } from '../service/googlePlacesService.js';
+import { config } from '../config.js';
+import { asyncRoute } from '../errors.js';
+import { fetchPlacePhoto } from '../service/googlePlacesService.js';
 
 const router = express.Router();
 
-/**
- * GET /api/places/search
- * Search for places near a location
- */
-router.get('/search', async (req, res) => {
-  try {
-    const { location, radius = 5000, types = 'tourist_attraction' } = req.query;
+router.get('/photo/:ref', asyncRoute(async (req, res) => {
+  const { stream, contentType } = await fetchPlacePhoto(req.params.ref, req.query.w, config.googleMapsApiKey);
 
-    if (!location) {
-      return res.status(400).json({
-        error: 'Location parameter is required'
-      });
-    }
-
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({
-        error: 'Google Maps API key not configured'
-      });
-    }
-
-    // Geocode location first
-    const coords = await geocodeLocation(location, apiKey);
-
-    // Search nearby places
-    const typeArray = types.split(',').map(t => t.trim());
-    const places = await searchNearbyPlaces(
-      coords.lat,
-      coords.lng,
-      parseInt(radius),
-      typeArray,
-      apiKey
-    );
-
-    res.json({
-      success: true,
-      location: coords,
-      places
-    });
-
-  } catch (error) {
-    console.error('Places search error:', error);
-    res.status(500).json({
-      error: 'Failed to search places',
-      message: error.message
-    });
-  }
-});
+  res.set({
+    'Content-Type': contentType || 'image/jpeg',
+    'Cache-Control': 'private, max-age=86400'
+  });
+  stream.on('error', () => res.destroy());
+  stream.pipe(res);
+}));
 
 export default router;

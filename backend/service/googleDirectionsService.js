@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { AppError } from '../errors.js';
 
 const GOOGLE_DIRECTIONS_API = 'https://maps.googleapis.com/maps/api/directions';
 
@@ -7,66 +8,59 @@ const GOOGLE_DIRECTIONS_API = 'https://maps.googleapis.com/maps/api/directions';
  */
 export async function calculateRoute(stops, apiKey) {
   if (stops.length < 2) {
-    throw new Error('At least 2 stops required for route calculation');
+    throw new AppError(400, 'INVALID_INPUT', 'At least 2 stops required for route calculation');
   }
 
-  try {
-    const origin = `${stops[0].lat},${stops[0].lng}`;
-    const destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
-    
-    // Waypoints are all stops between start and end
-    const waypoints = stops.slice(1, -1).map(stop => `${stop.lat},${stop.lng}`).join('|');
+  const origin = `${stops[0].lat},${stops[0].lng}`;
+  const destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
+  const waypoints = stops.slice(1, -1).map(stop => `${stop.lat},${stop.lng}`).join('|');
 
-    const params = {
-      origin,
-      destination,
-      mode: 'driving',
-      key: apiKey
+  const params = {
+    origin,
+    destination,
+    mode: 'driving',
+    key: apiKey
+  };
+
+  if (waypoints) {
+    params.waypoints = `optimize:true|${waypoints}`;
+  }
+
+  const response = await axios.get(`${GOOGLE_DIRECTIONS_API}/json`, { params });
+  const { status } = response.data;
+
+  if (status === 'ZERO_RESULTS') {
+    throw new AppError(422, 'NO_ROUTE_FOUND');
+  }
+  if (status !== 'OK') {
+    throw new AppError(502, 'UPSTREAM_ERROR', `Directions API failed: ${status}`);
+  }
+
+  const route = response.data.routes[0];
+  let totalDistanceMeters = 0;
+  let totalDurationSeconds = 0;
+
+  const routeLegs = route.legs.map(leg => {
+    totalDistanceMeters += leg.distance.value;
+    totalDurationSeconds += leg.duration.value;
+
+    return {
+      startAddress: leg.start_address,
+      endAddress: leg.end_address,
+      distanceMeters: leg.distance.value,
+      distanceText: leg.distance.text,
+      durationSeconds: leg.duration.value,
+      durationText: leg.duration.text
     };
+  });
 
-    if (waypoints) {
-      params.waypoints = `optimize:true|${waypoints}`;
-    }
-
-    const response = await axios.get(`${GOOGLE_DIRECTIONS_API}/json`, { params });
-
-    if (response.data.status === 'OK') {
-      const route = response.data.routes[0];
-      const legs = route.legs;
-
-      // Calculate totals
-      let totalDistanceMeters = 0;
-      let totalDurationSeconds = 0;
-
-      const routeLegs = legs.map(leg => {
-        totalDistanceMeters += leg.distance.value;
-        totalDurationSeconds += leg.duration.value;
-
-        return {
-          startAddress: leg.start_address,
-          endAddress: leg.end_address,
-          distanceMeters: leg.distance.value,
-          distanceText: leg.distance.text,
-          durationSeconds: leg.duration.value,
-          durationText: leg.duration.text
-        };
-      });
-
-      return {
-        legs: routeLegs,
-        totalDistanceKm: (totalDistanceMeters / 1000).toFixed(1),
-        totalDurationMin: Math.round(totalDurationSeconds / 60),
-        polyline: route.overview_polyline.points,
-        waypointOrder: route.waypoint_order || []
-      };
-    }
-
-    throw new Error(`Directions API failed: ${response.data.status}`);
-  } catch (error) {
-    console.error('Route calculation error:', error.message);
-    console.error('Full error:', error.response?.data || error);
-    throw error;
-  }
+  return {
+    legs: routeLegs,
+    totalDistanceKm: (totalDistanceMeters / 1000).toFixed(1),
+    totalDurationMin: Math.round(totalDurationSeconds / 60),
+    polyline: route.overview_polyline.points,
+    waypointOrder: route.waypoint_order || []
+  };
 }
 
 /**

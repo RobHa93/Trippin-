@@ -1,5 +1,5 @@
 import { geocodeLocation, getCityPlaces, getExcursionPlaces, getMealPlaces } from './googlePlacesService.js';
-import { calculateRoute, getTravelTime } from './googleDirectionsService.js';
+import { calculateRoute } from './googleDirectionsService.js';
 
 const MEAL_MODES = ['breakfast', 'lunch', 'dinner'];
 
@@ -12,11 +12,6 @@ export async function generateTrip(tripRequest, apiKey) {
   }
 
   const { location, totalDays, planStyle, cityDays, excursionDays, startLocation } = tripRequest;
-
-  // Validate input
-  if (cityDays + excursionDays !== totalDays) {
-    throw new Error('City days + excursion days must equal total days');
-  }
 
   const stopsPerDay = planStyle === 'relaxed' ? 3 : 5;
 
@@ -66,10 +61,7 @@ export async function generateTrip(tripRequest, apiKey) {
 
     // Only the very first day can start from the user's live location —
     // it's where the trip actually begins, unlike later days.
-    const useStartLocation = day.dayNumber === 1
-      && typeof startLocation?.lat === 'number'
-      && typeof startLocation?.lng === 'number'
-      && optimizedStops.length >= 1;
+    const useStartLocation = day.dayNumber === 1 && startLocation && optimizedStops.length >= 1;
 
     let route = null;
     let finalStops = optimizedStops;
